@@ -1,0 +1,5 @@
+image: zookeeper
+imageTag: "3.4"
+# imagePullPolicy: IfNotPresent
+# Use this to specify the resource consumption for each Zookeeper node
+resources: {}

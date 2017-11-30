@@ -1,0 +1,90 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: "{{ .Release.Name }}-solr"
+  labels:
+{{ include "default-labels" . | indent 4 }}
+    component: solr
+spec:
+  replicas: {{ .Values.replicas }}
+  # Select pods on release and component only, rather than all labels
+  # This means that the selector will match all pods from all versions of the chart when upgrading
+  selector:
+    matchLabels:
+      release: {{ .Release.Name }}
+      component: solr
+  template:
+    metadata:
+      labels:
+{{ include "default-labels" . | indent 8 }}
+        component: solr
+    spec:
+      initContainers:
+        # Use an init container to ensure that zookeeper is up before starting solr
+        # To do this, check that the service responds to a stat
+        - name: ensure-zookeeper
+          image: {{ .Values.helmUtilsImage | quote }}
+          command:
+            - "/bin/sh"
+            - "-c"
+            - "echo stat | nc {{ .Release.Name }}-zookeeper 2181 | grep Zxid"
+        # Upload solr.xml to Zookeeper if it isn't already present
+        - name: upload-solr-xml
+          image: "{{ index .Values "esgf-zookeeper" "image" }}:{{ index .Values "esgf-zookeeper" "imageTag" }}"
+          imagePullPolicy: {{ default "" (index .Values "esgf-zookeeper" "imagePullPolicy") | quote }}
+          command:
+            - "/bin/bash"
+            - "-c"
+            - |
+              set -e
+              ZK="{{ .Release.Name }}-zookeeper:2181"
+              case "$(zkCli.sh -server "$ZK" get /solr.xml 2>&1 1>/dev/null)" in
+                "Node does not exist:"*)
+                  zkCli.sh -server "$ZK" create \
+                    /solr.xml \
+                    "$(cat /esg/solr-cloud-home/solr.xml)"
+                  ;;
+              esac
+          volumeMounts:
+            - name: solr-xml
+              mountPath: /esg/solr-cloud-home
+      containers:
+        - name: solr
+          image: "{{ .Values.image }}:{{ .Values.imageTag }}"
+          imagePullPolicy: {{ default "" .Values.imagePullPolicy | quote }}
+          ports:
+            - name: solr
+              containerPort: 8983
+          # The container is ready when the socket is bound, and is alive as long
+          # as it is bound
+          readinessProbe:
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            tcpSocket:
+              port: 8983
+          livenessProbe:
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            tcpSocket:
+              port: 8983
+          args:
+            - "solr"
+            - "-f"
+            - "-c"
+            - "-p"
+            - "8983"
+            - "-z"
+            - "{{ .Release.Name }}-zookeeper:2181"
+            - "-s"
+            - "/esg/solr-cloud-home"
+          volumeMounts:
+            - name: solr-home
+              mountPath: /esg/solr-cloud-home
+          resources:
+{{ toYaml .Values.resources | indent 12 }}
+      volumes:
+        - name: solr-home
+          emptyDir: {}
+        - name: solr-xml
+          configMap:
+            name: "{{ .Release.Name }}-solr-xml"

@@ -1,0 +1,15 @@
+# Load-balanced service for Zookeeper clients
+apiVersion: v1
+kind: Service
+metadata:
+  name: "{{ .Release.Name }}-zookeeper"
+  labels:
+{{ include "default-labels" . | indent 4 }}
+    component: zookeeper
+spec:
+  ports:
+    - name: client
+      port: 2181
+  selector:
+    release: {{ .Release.Name }}
+    component: zookeeper

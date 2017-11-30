@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: "{{ .Release.Name }}-solr"
+  labels:
+{{ include "default-labels" . | indent 4 }}
+    component: solr
+spec:
+  ports:
+    - name: solr
+      port: 8983
+  selector:
+    release: {{ .Release.Name }}
+    component: solr

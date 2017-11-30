@@ -1,0 +1,9 @@
+image: solr
+imageTag: "5.5"
+# imagePullPolicy: "IfNotPresent"
+# The number of Solr nodes to deploy
+replicas: 3
+# Use this to specify the resource consumption for each Solr node
+resources: {}
+
+helmUtilsImage: cedadev/helm-utils:1.6.1

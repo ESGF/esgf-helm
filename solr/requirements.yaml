@@ -1,0 +1,4 @@
+dependencies:
+  - name: esgf-zookeeper
+    version: "0.1.0"
+    repository: "file://../zookeeper"
