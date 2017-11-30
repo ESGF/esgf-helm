@@ -1,11 +1,11 @@
-# esgf-helm
+# esgf-helm
 
 This project provides a Helm chart for deploying `esgf-docker` components on
 Kubernetes/OpenShift.
 
-## Deploying on OpenShift
+## Deploying on OpenShift
 
-### Running a local cluster for testing
+### Running a local cluster for testing
 
 Getting a local OpenShift cluster for testing is really simple. First, install
 [Docker](https://docs.docker.com/engine/installation/) and the
@@ -27,7 +27,7 @@ following command as a cluster admin:
 $ oc adm policy add-scc-to-group anyuid system:authenticated
 ```
 
-### Installing Helm
+### Installing Helm
 
 Tiller (the in-cluster component of Helm) can be installed on a per-project
 basis in OpenShift using the following commands:
