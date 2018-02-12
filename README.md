@@ -4,7 +4,7 @@ This project provides a Helm chart for deploying `esgf-docker` components on
 Kubernetes/OpenShift.
 
 
-## Quickstart
+## Quickstart
 
 First, install [Minishift](https://www.openshift.org/minishift/) and the
 [Helm](https://helm.sh/) CLI.
