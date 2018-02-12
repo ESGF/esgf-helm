@@ -1,0 +1,71 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: "{{ .Release.Name }}-tds"
+  labels:
+{{ include "default-labels" . | indent 4 }}
+    component: tds
+spec:
+  replicas: {{ .Values.tds.replicas }}
+  # Select pods on release and component only, rather than all labels
+  # This means that the selector will match all pods from all versions of the chart when upgrading
+  selector:
+    matchLabels:
+      release: {{ .Release.Name }}
+      component: tds
+  template:
+    metadata:
+      labels:
+{{ include "default-labels" . | indent 8 }}
+        component: tds
+      annotations:
+        checksum/shared-secrets: {{ include (print $.Template.BasePath "/shared/secret.yaml") . | sha256sum }}
+        checksum/tds-secrets: {{ include (print $.Template.BasePath "/tds/secret.yaml") . | sha256sum }}
+        checksum/trust-bundle-jks: {{ include (print $.Template.BasePath "/tds/configmap.yaml") . | sha256sum }}
+    spec:
+      containers:
+        - name: tds
+          image: "{{ .Values.tds.image }}:{{ .Values.tds.imageTag }}"
+          imagePullPolicy: {{ default "" .Values.tds.imagePullPolicy | quote }}
+          ports:
+            - name: http
+              containerPort: 8080
+#          livenessProbe:
+#            httpGet:
+#              path: /esg-orp/home.htm
+#              port: 8080
+              # This endpoint requires HTTPS, so simulate it
+#              httpHeaders:
+#                - name: Host
+#                  value: "{{ .Values.hostname }}"
+#                - name: X-Forwarded-Proto
+#                  value: https
+#            initialDelaySeconds: 10
+#            periodSeconds: 10
+          env:
+            - name: ESGF_HOSTNAME
+              value: "{{ .Values.hostname }}"
+            - name: ESGF_DATABASE_HOST
+              value: "{{ .Release.Name }}-postgres"
+            - name: ESGF_TRUSTSTORE_FILE
+              value: /esg/certificates/esg-trust-bundle.jks
+            - name: ESGF_TRUSTSTORE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Release.Name }}-tds-secrets"
+                  key: "java-trust-bundle-password"
+            - name: ESGF_COOKIE_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Release.Name }}-shared-secrets"
+                  key: "shared-cookie-secret-key"
+          volumeMounts:
+            - mountPath: /esg/certificates/esg-trust-bundle.jks.base64
+              name: esg-trust-bundle
+              subPath: esg-trust-bundle.jks.base64
+          resources:
+{{ toYaml .Values.tds.resources | indent 12 }}
+      volumes:
+        - name: esg-trust-bundle
+          configMap:
+            name: "{{ .Release.Name }}-trust-bundle-jks"

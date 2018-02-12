@@ -1,0 +1,74 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: "{{ .Release.Name }}-orp"
+  labels:
+{{ include "default-labels" . | indent 4 }}
+    component: orp
+spec:
+  replicas: {{ .Values.orp.replicas }}
+  # Select pods on release and component only, rather than all labels
+  # This means that the selector will match all pods from all versions of the chart when upgrading
+  selector:
+    matchLabels:
+      release: {{ .Release.Name }}
+      component: orp
+  template:
+    metadata:
+      labels:
+{{ include "default-labels" . | indent 8 }}
+        component: orp
+      annotations:
+        checksum/orp-secrets: {{ include (print $.Template.BasePath "/orp/secret.yaml") . | sha256sum }}
+        checksum/hostcert-pkcs12: {{ include (print $.Template.BasePath "/orp/configmap.yaml") . | sha256sum }}
+        checksum/hostcert: {{ include (print $.Template.BasePath "/shared/configmap-hostcert.yaml") . | sha256sum }}
+    spec:
+      containers:
+        - name: orp
+          image: "{{ .Values.orp.image }}:{{ .Values.orp.imageTag }}"
+          imagePullPolicy: {{ default "" .Values.orp.imagePullPolicy | quote }}
+          ports:
+            - name: http
+              containerPort: 8080
+          livenessProbe:
+            httpGet:
+              path: /esg-orp/home.htm
+              port: 8080
+              # This endpoint requires HTTPS, so simulate it
+              httpHeaders:
+                - name: Host
+                  value: "{{ .Values.hostname }}"
+                - name: X-Forwarded-Proto
+                  value: https
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          env:
+            - name: ESGF_HOSTNAME
+              value: "{{ .Values.hostname }}"
+            - name: ESGF_DATABASE_HOST
+              value: "{{ .Release.Name }}-postgres"
+            - name: ESGF_KEYSTORE_FILE
+              value: /esg/certificates/esg-hostcert-bundle.p12
+            - name: ESGF_KEYSTORE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Release.Name }}-orp-secrets"
+                  key: "java-hostcert-bundle-password"
+            - name: ESGF_KEYSTORE_ALIAS
+              value: "{{ .Values.hostname }}"
+          volumeMounts:
+            - mountPath: /esg/certificates/esg-hostcert-bundle.p12.base64
+              name: esg-hostcert-bundle
+              subPath: esg-hostcert-bundle.p12.base64
+            - mountPath: /usr/local/share/ca-certificates/hostcert.crt
+              name: hostcert
+              subPath: hostcert.crt
+          resources:
+{{ toYaml .Values.orp.resources | indent 12 }}
+      volumes:
+        - name: esg-hostcert-bundle
+          configMap:
+            name: "{{ .Release.Name }}-hostcert-pkcs12"
+        - name: hostcert
+          configMap:
+            name: "{{ .Release.Name }}-hostcert"

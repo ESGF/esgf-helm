@@ -33,8 +33,8 @@ spec:
       component: zookeeper
   # This is the service for the network domain
   serviceName: "{{ .Release.Name }}-zk"
-  # Currently, this cannot be scaled dynamically. It must be odd and > 3 for quorum to be maintained
-  replicas: 3
+  # Currently, this cannot be scaled dynamically. It must be odd and >= 3 for quorum to be maintained
+  replicas: {{ .Values.zookeeper.replicas }}
   template:
     metadata:
       labels:
@@ -43,8 +43,8 @@ spec:
     spec:
       containers:
         - name: zookeeper
-          image: "{{ .Values.image }}:{{ .Values.imageTag }}"
-          imagePullPolicy: {{ default "" .Values.imagePullPolicy | quote }}
+          image: "{{ .Values.zookeeper.image }}:{{ .Values.zookeeper.imageTag }}"
+          imagePullPolicy: {{ default "" .Values.zookeeper.imagePullPolicy | quote }}
           ports:
             - name: client
               containerPort: 2181
@@ -59,7 +59,7 @@ spec:
               mountPath: /datalog
           env:
             - name: ZOO_REPLICAS
-              value: "3"
+              value: "{{ .Values.zookeeper.replicas }}"
             - name: ZOO_INIT_LIMIT
               value: "10"
             - name: ZOO_SYNC_LIMIT
@@ -73,28 +73,22 @@ spec:
             - "-c"
             - |
               set -e
-              export ZOO_MY_ID="${HOSTNAME##*-}"
-              ZOO_SERVERS=""
-              for i in $(seq 0 $(($ZOO_REPLICAS - 1))); do
-                if [[ "$i" = "$ZOO_MY_ID" ]]; then
-                  ZOO_SERVERS="$ZOO_SERVERS server.$i=0.0.0.0:2888:3888"
-                else
-                  ZOO_SERVERS="$ZOO_SERVERS server.$i={{ .Release.Name }}-zk-$i.{{ .Release.Name }}-zk:2888:3888"
-                fi
-              done
-              export ZOO_SERVERS
+              # We only need to do this stuff if we are running clustered, i.e. replicas > 1
+              if [ "$ZOO_REPLICAS" -gt "1" ]; then
+                export ZOO_MY_ID="${HOSTNAME##*-}"
+                ZOO_SERVERS=""
+                for i in $(seq 0 $(($ZOO_REPLICAS - 1))); do
+                  if [[ "$i" = "$ZOO_MY_ID" ]]; then
+                    ZOO_SERVERS="$ZOO_SERVERS server.$i=0.0.0.0:2888:3888"
+                  else
+                    ZOO_SERVERS="$ZOO_SERVERS server.$i={{ .Release.Name }}-zk-$i.{{ .Release.Name }}-zk:2888:3888"
+                  fi
+                done
+                export ZOO_SERVERS
+              fi
               env
               exec /docker-entrypoint.sh zkServer.sh start-foreground
-          # For readiness and liveness, check that the node is running using the ruok 4 letter word
-          readinessProbe:
-            exec:
-              command:
-                - "/bin/sh"
-                - "-c"
-                - "echo ruok | nc 127.0.0.1 2181 | grep imok"
-            initialDelaySeconds: 10
-            timeoutSeconds: 5
-            failureThreshold: 10
+          # For liveness, check that the node is running using the ruok 4 letter word
           livenessProbe:
             exec:
               command:
@@ -102,10 +96,9 @@ spec:
                 - "-c"
                 - "echo ruok | nc 127.0.0.1 2181 | grep imok"
             initialDelaySeconds: 10
-            timeoutSeconds: 5
-            failureThreshold: 10
+            periodSeconds: 10
           resources:
-{{ toYaml .Values.resources | indent 12 }}
+{{ toYaml .Values.zookeeper.resources | indent 12 }}
       volumes:
         - name: zk-data
           emptyDir: {}

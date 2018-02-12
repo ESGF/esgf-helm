@@ -1,0 +1,4 @@
+# Exclude tar files for child charts
+*.tgz
+# Exclude lock files
+*.lock

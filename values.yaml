@@ -1,0 +1,95 @@
+zookeeper:
+    image: zookeeper
+    imageTag: latest
+    # imagePullPolicy: "IfNotPresent"
+    # Currently, this cannot be scaled dynamically. It must be odd and > 3 for quorum to be maintained
+    replicas: 1
+    # Use this to set the resources available to each zookeeper container
+    resources: {}
+
+solr:
+    image: cedadev/esgf-solr
+    imageTag: latest
+    # imagePullPolicy: "IfNotPresent"
+    replicas: 1
+    # Use this to set the resources available to each solr container
+    resources: {}
+
+postgres:
+    image: cedadev/esgf-postgres
+    imageTag: latest
+    # imagePullPolicy: "IfNotPresent"
+    # Use this to set the resources available to the postgres container
+    resources: {}
+
+indexNode:
+    image: cedadev/esgf-index-node
+    imageTag: latest
+    # imagePullPolicy: "IfNotPresent"
+    replicas: 1
+    # Use this to set the resources available to each index node container
+    resources: {}
+    # The number of shards to use for Solr collections
+    solrNumShards: 1
+    # The replication factor to use for Solr collections
+    solrReplicationFactor: 1
+
+idpNode:
+    image: cedadev/esgf-idp-node
+    imageTag: latest
+    # imagePullPolicy: "IfNotPresent"
+    replicas: 1
+    # Use this to set the resources available to each index node container
+    resources: {}
+
+orp:
+    image: cedadev/esgf-orp
+    imageTag: latest
+    # imagePullPolicy: "IfNotPresent"
+    replicas: 1
+    # Use this to set the resources available to each index node container
+    resources: {}
+
+tds:
+    image: cedadev/esgf-tds
+    imageTag: latest
+    # imagePullPolicy: "IfNotPresent"
+    replicas: 1
+    # Use this to set the resources available to each index node container
+    resources: {}
+
+cog:
+    image: cedadev/esgf-cog
+    imageTag: latest
+    # imagePullPolicy: "IfNotPresent"
+    replicas: 1
+    # Use this to set the resources available to each index node container
+    resources: {}
+
+auth:
+    image: cedadev/esgf-auth
+    imageTag: latest
+    # imagePullPolicy: "IfNotPresent"
+    replicas: 1
+    # Use this to set the resources available to each index node container
+    resources: {}
+    # The postgres for use by esgf-auth
+    postgres:
+      image: postgres
+      imageTag: 10
+      # imagePullPolicy: "IfNotPresent"
+      resources: {}
+
+slcs:
+    image: cedadev/esgf-slcs
+    imageTag: latest
+    # imagePullPolicy: "IfNotPresent"
+    replicas: 1
+    # Use this to set the resources available to each index node container
+    resources: {}
+    # The postgres for use by the SLCS
+    postgres:
+      image: postgres
+      imageTag: 10
+      # imagePullPolicy: "IfNotPresent"
+      resources: {}

@@ -1,0 +1,20 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: "{{ .Release.Name }}-slcs"
+  labels:
+{{ include "default-labels" . | indent 4 }}
+    component: slcs
+spec:
+  host: "{{ .Values.hostname }}"
+  path: "/esgf-slcs"
+  to:
+    kind: Service
+    name: "{{ .Release.Name }}-slcs"
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+    key: |-
+{{ index .Values.certificates "hostcert.key" | indent 6 }}
+    certificate: |-
+{{ index .Values.certificates "hostcert.crt" | indent 6 }}

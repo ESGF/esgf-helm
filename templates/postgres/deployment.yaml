@@ -1,0 +1,54 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: "{{ .Release.Name }}-postgres"
+  labels:
+{{ include "default-labels" . | indent 4 }}
+    component: postgres
+spec:
+  replicas: 1
+  # Select pods on release and component only, rather than all labels
+  # This means that the selector will match all pods from all versions of the chart when upgrading
+  selector:
+    matchLabels:
+      release: {{ .Release.Name }}
+      component: postgres
+  template:
+    metadata:
+      labels:
+{{ include "default-labels" . | indent 8 }}
+        component: postgres
+      annotations:
+        checksum/secret: {{ include (print $.Template.BasePath "/postgres/secret.yaml") . | sha256sum }}
+    spec:
+      containers:
+        - name: postgres
+          image: "{{ .Values.postgres.image }}:{{ .Values.postgres.imageTag }}"
+          imagePullPolicy: {{ default "" .Values.postgres.imagePullPolicy | quote }}
+          ports:
+            - name: postgres
+              containerPort: 5432
+          livenessProbe:
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            tcpSocket:
+              port: 5432
+          env:
+            - name: DBSUPER_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Release.Name }}-postgres-passwords"
+                  key: dbsuper
+            - name: ESGCET_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Release.Name }}-postgres-passwords"
+                  key: esgcet
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/pgsql/data
+          resources:
+{{ toYaml .Values.postgres.resources | indent 12 }}
+      volumes:
+        - name: postgres-data
+          emptyDir: {}

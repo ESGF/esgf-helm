@@ -1,0 +1,79 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: "{{ .Release.Name }}-cog"
+  labels:
+{{ include "default-labels" . | indent 4 }}
+    component: cog
+spec:
+  replicas: {{ .Values.cog.replicas }}
+  # Select pods on release and component only, rather than all labels
+  # This means that the selector will match all pods from all versions of the chart when upgrading
+  selector:
+    matchLabels:
+      release: {{ .Release.Name }}
+      component: cog
+  template:
+    metadata:
+      labels:
+{{ include "default-labels" . | indent 8 }}
+        component: cog
+      annotations:
+        checksum/postgres-passwords: {{ include (print $.Template.BasePath "/postgres/secret.yaml") . | sha256sum }}
+        checksum/cog-secrets: {{ include (print $.Template.BasePath "/cog/secret.yaml") . | sha256sum }}
+        checksum/hostcert: {{ include (print $.Template.BasePath "/shared/configmap-hostcert.yaml") . | sha256sum }}
+    spec:
+      containers:
+        - name: cog
+          image: "{{ .Values.cog.image }}:{{ .Values.cog.imageTag }}"
+          imagePullPolicy: {{ default "" .Values.cog.imagePullPolicy | quote }}
+          ports:
+            - name: http
+              containerPort: 8000
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8000
+              # The ALLOWED_HOSTS setting means that the app will only accept
+              # requests from the correct host
+              httpHeaders:
+                - name: Host
+                  value: "{{ .Values.hostname }}"
+                - name: X-Forwarded-Host
+                  value: "{{ .Values.hostname }}"
+                - name: X-Forwarded-Proto
+                  value: https
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          env:
+            - name: ESGF_HOSTNAME
+              value: "{{ .Values.hostname }}"
+            - name: ESGF_DATABASE_HOST
+              value: "{{ .Release.Name }}-postgres"
+            - name: ESGF_DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Release.Name }}-postgres-passwords"
+                  key: dbsuper
+            - name: ESGF_ROOTADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Release.Name }}-cog-secrets"
+                  key: "rootadmin-password"
+            - name: ESGF_COG_TIME_ZONE
+              value: "Europe/London"
+            - name: ESGF_COG_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Release.Name }}-cog-secrets"
+                  key: "cog-secret-key"
+          volumeMounts:
+            - mountPath: /usr/local/share/ca-certificates/hostcert.crt
+              name: hostcert
+              subPath: hostcert.crt
+          resources:
+{{ toYaml .Values.cog.resources | indent 12 }}
+      volumes:
+        - name: hostcert
+          configMap:
+            name: "{{ .Release.Name }}-hostcert"

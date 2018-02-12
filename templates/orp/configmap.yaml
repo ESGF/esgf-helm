@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: "{{ .Release.Name }}-hostcert-pkcs12"
+  labels:
+{{ include "default-labels" . | indent 4 }}
+    component: orp
+data:
+  esg-hostcert-bundle.p12.base64: |-
+{{ index .Values.certificates "esg-hostcert-bundle.p12.base64" | indent 4 }}

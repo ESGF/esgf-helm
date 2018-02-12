@@ -1,0 +1,91 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: "{{ .Release.Name }}-auth"
+  labels:
+{{ include "default-labels" . | indent 4 }}
+    component: auth
+spec:
+  replicas: {{ .Values.auth.replicas }}
+  # Select pods on release and component only, rather than all labels
+  # This means that the selector will match all pods from all versions of the chart when upgrading
+  selector:
+    matchLabels:
+      release: {{ .Release.Name }}
+      component: auth
+  template:
+    metadata:
+      labels:
+{{ include "default-labels" . | indent 8 }}
+        component: auth
+      annotations:
+        checksum/auth-secrets: {{ include (print $.Template.BasePath "/auth/secret.yaml") . | sha256sum }}
+        checksum/shared-secrets: {{ include (print $.Template.BasePath "/shared/secret.yaml") . | sha256sum }}
+        checksum/hostcert: {{ include (print $.Template.BasePath "/shared/configmap-hostcert.yaml") . | sha256sum }}
+    spec:
+      containers:
+        - name: auth
+          image: "{{ .Values.auth.image }}:{{ .Values.auth.imageTag }}"
+          imagePullPolicy: {{ default "" .Values.auth.imagePullPolicy | quote }}
+          ports:
+            - name: http
+              containerPort: 8000
+          livenessProbe:
+            httpGet:
+              path: /esgf-auth/home/
+              port: 8000
+              # The ALLOWED_HOSTS setting means that the app will only accept
+              # requests from the correct host
+              httpHeaders:
+                - name: Host
+                  value: "{{ .Values.hostname }}"
+                - name: X-Forwarded-Host
+                  value: "{{ .Values.hostname }}"
+                - name: X-Forwarded-Proto
+                  value: https
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          env:
+            - name: ESGF_HOSTNAME
+              value: "{{ .Values.hostname }}"
+            - name: ESGF_DATABASE_HOST
+              value: "{{ .Release.Name }}-postgres"
+            # ESGF-Auth settings
+            - name: SCRIPT_NAME
+              value: /esgf-auth
+            - name: ESGF_AUTH_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Release.Name }}-auth-secrets"
+                  key: "auth-secret-key"
+            - name: ESGF_COOKIE_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Release.Name }}-shared-secrets"
+                  key: "shared-cookie-secret-key"
+            # Database settings
+            - name: DJANGO_DATABASE_DEFAULT_ENGINE
+              value: django.db.backends.postgresql
+            - name: DJANGO_DATABASE_DEFAULT_NAME
+              value: auth
+            - name: DJANGO_DATABASE_DEFAULT_HOST
+              value: "{{ .Release.Name }}-auth-postgres"
+            - name: DJANGO_DATABASE_DEFAULT_PORT
+              value: "5432"
+            - name: DJANGO_DATABASE_DEFAULT_USER
+              value: authuser
+            - name: DJANGO_DATABASE_DEFAULT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Release.Name }}-auth-secrets"
+                  key: "auth-database-password"
+          volumeMounts:
+            - mountPath: /usr/local/share/ca-certificates/hostcert.crt
+              name: hostcert
+              subPath: hostcert.crt
+          resources:
+{{ toYaml .Values.auth.resources | indent 12 }}
+      volumes:
+        - name: hostcert
+          configMap:
+            name: "{{ .Release.Name }}-hostcert"

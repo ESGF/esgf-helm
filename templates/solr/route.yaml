@@ -1,0 +1,20 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: "{{ .Release.Name }}-solr"
+  labels:
+{{ include "default-labels" . | indent 4 }}
+    component: solr
+spec:
+  host: "{{ .Values.hostname }}"
+  path: "/solr"
+  to:
+    kind: Service
+    name: "{{ .Release.Name }}-solr"
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Allow
+    key: |-
+{{ index .Values.certificates "hostcert.key" | indent 6 }}
+    certificate: |-
+{{ index .Values.certificates "hostcert.crt" | indent 6 }}

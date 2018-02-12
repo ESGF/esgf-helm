@@ -1,0 +1,57 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: "{{ .Release.Name }}-solr"
+  labels:
+{{ include "default-labels" . | indent 4 }}
+    component: solr
+spec:
+  replicas: {{ .Values.solr.replicas }}
+  # Select pods on release and component only, rather than all labels
+  # This means that the selector will match all pods from all versions of the chart when upgrading
+  selector:
+    matchLabels:
+      release: {{ .Release.Name }}
+      component: solr
+  template:
+    metadata:
+      labels:
+{{ include "default-labels" . | indent 8 }}
+        component: solr
+    spec:
+      containers:
+        - name: solr
+          image: "{{ .Values.solr.image }}:{{ .Values.solr.imageTag }}"
+          imagePullPolicy: {{ default "" .Values.solr.imagePullPolicy | quote }}
+          ports:
+            - name: solr
+              containerPort: 8983
+          livenessProbe:
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            tcpSocket:
+              port: 8983
+          env:
+            - name: SOLR_HOME
+              value: /esg/solr-home
+            - name: SOLR_HEAP
+              value: 1g
+            - name: ZOOKEEPER_HOST
+              value: "{{ .Release.Name }}-zookeeper"
+          args:
+            - "solr-foreground"
+            - "-c"
+            - "-p"
+            - "8983"
+            - "-z"
+            - "{{ .Release.Name }}-zookeeper:2181"
+            - "-s"
+            - "/esg/solr-home"
+          volumeMounts:
+            - name: solr-home
+              mountPath: /esg/solr-home
+          resources:
+{{ toYaml .Values.resources | indent 12 }}
+      volumes:
+        - name: solr-home
+          emptyDir: {}

@@ -1,0 +1,4 @@
+apiVersion: v1
+name: esgf-helm
+version: 0.1.0
+description: Helm chart for deploying ESGF components.

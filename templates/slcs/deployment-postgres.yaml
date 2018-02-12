@@ -1,0 +1,55 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: "{{ .Release.Name }}-slcs-postgres"
+  labels:
+{{ include "default-labels" . | indent 4 }}
+    component: slcs-postgres
+spec:
+  replicas: 1
+  # Select pods on release and component only, rather than all labels
+  # This means that the selector will match all pods from all versions of the chart when upgrading
+  selector:
+    matchLabels:
+      release: {{ .Release.Name }}
+      component: slcs-postgres
+  template:
+    metadata:
+      labels:
+{{ include "default-labels" . | indent 8 }}
+        component: slcs-postgres
+      annotations:
+        checksum/secret: {{ include (print $.Template.BasePath "/slcs/secret.yaml") . | sha256sum }}
+    spec:
+      containers:
+        - name: slcs-postgres
+          image: "{{ .Values.slcs.postgres.image }}:{{ .Values.slcs.postgres.imageTag }}"
+          imagePullPolicy: {{ default "" .Values.slcs.postgres.imagePullPolicy | quote }}
+          ports:
+            - name: postgres
+              containerPort: 5432
+          livenessProbe:
+            tcpSocket:
+              port: 5432
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          env:
+            - name: POSTGRES_USER
+              value: slcsuser
+            - name: POSTGRES_DB
+              value: slcs
+            - name: POSTGRES_INITDB_ARGS
+              value: "--encoding=UTF-8"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Release.Name }}-slcs-secrets"
+                  key: "slcs-database-password"
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+          resources:
+{{ toYaml .Values.slcs.postgres.resources | indent 12 }}
+      volumes:
+        - name: postgres-data
+          emptyDir: {}

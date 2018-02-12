@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: "{{ .Release.Name }}-slcs"
+  labels:
+{{ include "default-labels" . | indent 4 }}
+    component: slcs
+spec:
+  ports:
+    - name: http
+      port: 8000
+  selector:
+    release: {{ .Release.Name }}
+    component: slcs
