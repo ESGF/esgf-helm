@@ -19,7 +19,7 @@ spec:
 {{ include "default-labels" . | indent 8 }}
         component: auth-postgres
       annotations:
-        checksum/secret: {{ include (print $.Template.BasePath "/auth/secret.yaml") . | sha256sum }}
+        checksum/auth-secrets: {{ include (print $.Template.BasePath "/auth/secret.yaml") . | sha256sum }}
     spec:
       containers:
         - name: auth-postgres

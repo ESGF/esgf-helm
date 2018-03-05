@@ -16,6 +16,14 @@ minishift start --openshift-version v3.7.1 --memory 8GB --disk-size 100GB
 eval $(minishift oc-env)
 ```
 
+Pods must be able to loop back to themselves via their own service - this is known
+as "hairpin mode", and requires us to put the docker bridge network into promiscuous
+mode:
+
+```sh
+minishift ssh -- sudo ip link set docker0 promisc on
+```
+
 By default, OpenShift is extremely secure, and overrides the `USER` set in the
 `Dockerfile` with a UID from a range allocated to the project. The ESGF containers
 expect to be able to run as the user specified in the `Dockerfile`, and some
@@ -47,9 +55,8 @@ Configure and deploy ESGF components:
 export ESGF_HOSTNAME="esgf.$(minishift ip).xip.io"
 # This should be an empty directory
 export ESGF_CONFIG=/path/to/esgf/config
-docker run -v "$ESGF_CONFIG":/esg -e ESGF_HOSTNAME cedadev/esgf-setup generate-secrets
-docker run -v "$ESGF_CONFIG":/esg -e ESGF_HOSTNAME cedadev/esgf-setup generate-test-certificates
-docker run -v "$ESGF_CONFIG":/esg -e ESGF_HOSTNAME cedadev/esgf-setup create-trust-bundles
-docker run -v "$ESGF_CONFIG":/esg -e ESGF_HOSTNAME cedadev/esgf-setup create-helm-config
-helm install -f "$ESGF_CONFIG/helm/values.yaml" -n esgf .
+docker-compose run esgf-setup generate-secrets
+docker-compose run esgf-setup generate-test-certificates
+docker-compose run esgf-setup create-trust-bundle
+docker-compose run -T esgf-setup helm-values | helm upgrade esgf . --install  -f -
 ```

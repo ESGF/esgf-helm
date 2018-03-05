@@ -1,0 +1,15 @@
+#####
+## Docker Compose file for running the esgf-setup container with the correct
+## environment and volumes to avoid command-line typos with long docker run commands
+#####
+
+version: '3.4'
+
+
+services:
+  esgf-setup:
+    image: "${ESGF_HUB}/esgf-setup:${ESGF_VERSION}"
+    environment:
+      ESGF_HOSTNAME:
+    volumes:
+      - "$ESGF_CONFIG:/esg"

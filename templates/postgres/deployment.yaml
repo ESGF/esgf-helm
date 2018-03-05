@@ -19,7 +19,7 @@ spec:
 {{ include "default-labels" . | indent 8 }}
         component: postgres
       annotations:
-        checksum/secret: {{ include (print $.Template.BasePath "/postgres/secret.yaml") . | sha256sum }}
+        checksum/postgres-secrets: {{ include (print $.Template.BasePath "/postgres/secret.yaml") . | sha256sum }}
     spec:
       containers:
         - name: postgres
@@ -28,22 +28,40 @@ spec:
           ports:
             - name: postgres
               containerPort: 5432
-          livenessProbe:
+          # The readiness and liveness probes run the same thing, but the liveness
+          # probe just waits a while before kicking in whereas the readiness probe
+          # starts straight away
+          readinessProbe:
+            tcpSocket: &probe
+              port: 5432
             initialDelaySeconds: 10
             periodSeconds: 10
-            tcpSocket:
-              port: 5432
+          livenessProbe:
+            tcpSocket: *probe
+            initialDelaySeconds: 60
+            periodSeconds: 10
           env:
             - name: DBSUPER_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: "{{ .Release.Name }}-postgres-passwords"
-                  key: dbsuper
+                  name: "{{ .Release.Name }}-postgres-secrets"
+                  key: database-password
             - name: ESGCET_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: "{{ .Release.Name }}-postgres-passwords"
-                  key: esgcet
+                  name: "{{ .Release.Name }}-postgres-secrets"
+                  key: database-publisher-password
+            - name: ESGF_ROOTADMIN_EMAIL
+              value: "CoG@{{ .Values.hostname }}"
+            - name: ESGF_ROOTADMIN_USERNAME
+              value: rootAdmin
+            - name: ESGF_ROOTADMIN_OPENID
+              value: https://{{ .Values.hostname }}/esgf-idp/openid/rootAdmin
+            - name: ESGF_ROOTADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Release.Name }}-postgres-secrets"
+                  key: rootadmin-password
           volumeMounts:
             - name: postgres-data
               mountPath: /var/lib/pgsql/data

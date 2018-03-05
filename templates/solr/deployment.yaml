@@ -19,6 +19,21 @@ spec:
 {{ include "default-labels" . | indent 8 }}
         component: solr
     spec:
+      initContainers:
+        # Wait for zookeeper to become available before starting
+        - name: ensure-zookeeper
+          image: busybox
+          command:
+            # Try every 5 seconds for no longer than 10 mins
+            - sh
+            - -c
+            - |
+              for i in $(seq 120); do
+                sleep 5
+                echo "Attempt $i of 120"
+                if echo stat | nc -w 1 "{{ .Release.Name }}-zookeeper" 2181 | grep -q Zxid; then exit 0; fi
+              done
+              exit 1
       containers:
         - name: solr
           image: "{{ .Values.solr.image }}:{{ .Values.solr.imageTag }}"
@@ -26,11 +41,18 @@ spec:
           ports:
             - name: solr
               containerPort: 8983
-          livenessProbe:
+          # The readiness and liveness probes run the same thing, but the liveness
+          # probe just waits a while before kicking in whereas the readiness probe
+          # starts straight away
+          readinessProbe:
+            tcpSocket: &probe
+              port: 8983
             initialDelaySeconds: 10
             periodSeconds: 10
-            tcpSocket:
-              port: 8983
+          livenessProbe:
+            tcpSocket: *probe
+            initialDelaySeconds: 60
+            periodSeconds: 10
           env:
             - name: SOLR_HOME
               value: /esg/solr-home
@@ -44,9 +66,9 @@ spec:
             - "-p"
             - "8983"
             - "-z"
-            - "{{ .Release.Name }}-zookeeper:2181"
+            - "$(ZOOKEEPER_HOST):2181"
             - "-s"
-            - "/esg/solr-home"
+            - "$(SOLR_HOME)"
           volumeMounts:
             - name: solr-home
               mountPath: /esg/solr-home

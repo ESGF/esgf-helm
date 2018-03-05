@@ -18,7 +18,24 @@ spec:
       labels:
 {{ include "default-labels" . | indent 8 }}
         component: index-node
+      annotations:
+        checksum/trust-bundle: {{ include (print $.Template.BasePath "/certificates/trust-bundle-configmap.yaml") . | sha256sum }}
     spec:
+      initContainers:
+        # Make sure Solr is up before starting
+        - name: ensure-solr
+          image: radial/busyboxplus:curl
+          command:
+            # Try every 5 seconds for no longer than 10 mins
+            - sh
+            - -c
+            - |
+              for i in $(seq 120); do
+                sleep 5
+                echo "Attempt $i of 120"
+                if curl -m 1 -fsSL http://{{ .Release.Name }}-solr:8983/solr/admin/info/system?wt=json; then exit 0; fi
+              done
+              exit 1
       containers:
         - name: index-node
           image: "{{ .Values.indexNode.image }}:{{ .Values.indexNode.imageTag }}"
@@ -26,22 +43,39 @@ spec:
           ports:
             - name: http
               containerPort: 8080
-          livenessProbe:
-            httpGet:
+          # The readiness and liveness probes run the same thing, but the liveness
+          # probe just waits a while before kicking in whereas the readiness probe
+          # starts straight away
+          readinessProbe:
+            httpGet: &probe
               path: /esg-search/search
               port: 8080
             initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: *probe
+            initialDelaySeconds: 60
             periodSeconds: 10
           env:
             - name: ESGF_HOSTNAME
               value: "{{ .Values.hostname }}"
             - name: ESGF_DATABASE_HOST
               value: "{{ .Release.Name }}-postgres"
-            - name: ESGF_SOLR_INTERNAL_URL
-              value: "http://{{ .Release.Name }}-solr:8983"
+            - name: ESGF_SOLR_HOSTNAME
+              value: "{{ .Release.Name }}-solr:8983"
             - name: ESGF_SOLR_COLLECTION_NUM_SHARDS
-              value: "{{ .Values.indexNode.solrNumShards }}"
+              value: "{{ .Values.indexNode.solrCollections.numShards }}"
             - name: ESGF_SOLR_COLLECTION_REPLICATION_FACTOR
-              value: "{{ .Values.indexNode.solrReplicationFactor }}"
+              value: "{{ .Values.indexNode.solrCollections.replicationFactor }}"
+            - name: ESGF_SOLR_COLLECTION_MAX_SHARDS_PER_NODE
+              value: "{{ .Values.indexNode.solrCollections.maxShardsPerNode }}"
+          volumeMounts:
+            - mountPath: /esg/certificates/esg-trust-bundle.pem
+              name: trust-bundle
+              subPath: esg-trust-bundle.pem
           resources:
 {{ toYaml .Values.indexNode.resources | indent 12 }}
+      volumes:
+        - name: trust-bundle
+          configMap:
+            name: "{{ .Release.Name }}-trust-bundle"

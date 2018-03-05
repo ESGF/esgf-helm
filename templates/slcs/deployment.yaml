@@ -19,10 +19,67 @@ spec:
 {{ include "default-labels" . | indent 8 }}
         component: slcs
       annotations:
-        checksum/postgres-passwords: {{ include (print $.Template.BasePath "/postgres/secret.yaml") . | sha256sum }}
+        checksum/postgres-secrets: {{ include (print $.Template.BasePath "/postgres/secret.yaml") . | sha256sum }}
         checksum/slcs-secrets: {{ include (print $.Template.BasePath "/slcs/secret.yaml") . | sha256sum }}
         checksum/slcs-ca: {{ include (print $.Template.BasePath "/slcs/secret-slcs-ca.yaml") . | sha256sum }}
+        checksum/trust-bundle: {{ include (print $.Template.BasePath "/certificates/trust-bundle-configmap.yaml") . | sha256sum }}
     spec:
+      initContainers:
+        # Wait for both postgres databases to become available before starting
+        - name: ensure-slcs-postgres
+          image: postgres
+          env:
+            - name: PGHOST
+              value: "{{ .Release.Name }}-slcs-postgres"
+            - name: PGPORT
+              value: "5432"
+            - name: PGUSER
+              value: slcsuser
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Release.Name }}-slcs-secrets"
+                  key: "slcs-database-password"
+            - name: PGDATABASE
+              value: slcs
+          command:
+            # Try every 5 seconds for no longer than 10 mins
+            - bash
+            - -c
+            - |
+              for i in $(seq 120); do
+                sleep 5
+                echo "Attempt $i of 120"
+                if pg_isready; then exit 0; fi
+              done
+              exit 1
+        - name: ensure-postgres
+          image: postgres
+          env:
+            - name: PGHOST
+              value: "{{ .Release.Name }}-postgres"
+            - name: PGPORT
+              value: "5432"
+            - name: PGUSER
+              value: dbsuper
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Release.Name }}-postgres-secrets"
+                  key: database-password
+            - name: PGDATABASE
+              value: esgcet
+          command:
+            # Try every 5 seconds for no longer than 10 mins
+            - bash
+            - -c
+            - |
+              for i in $(seq 120); do
+                sleep 5
+                echo "Attempt $i of 120"
+                if pg_isready; then exit 0; fi
+              done
+              exit 1
       containers:
         - name: slcs
           image: "{{ .Values.slcs.image }}:{{ .Values.slcs.imageTag }}"
@@ -30,8 +87,11 @@ spec:
           ports:
             - name: http
               containerPort: 8000
-          livenessProbe:
-            httpGet:
+          # The readiness and liveness probes run the same thing, but the liveness
+          # probe just waits a while before kicking in whereas the readiness probe
+          # starts straight away
+          readinessProbe:
+            httpGet: &probe
               path: /esgf-slcs
               port: 8000
               # The ALLOWED_HOSTS setting means that the app will only accept
@@ -44,6 +104,10 @@ spec:
                 - name: X-Forwarded-Proto
                   value: https
             initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: *probe
+            initialDelaySeconds: 60
             periodSeconds: 10
           env:
             # Generic Django settings
@@ -86,8 +150,15 @@ spec:
             - name: DJANGO_DATABASE_USERDB_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: "{{ .Release.Name }}-postgres-passwords"
-                  key: dbsuper
+                  name: "{{ .Release.Name }}-postgres-secrets"
+                  key: "database-password"
+            # Make the rootAdmin account a superuser
+            - name: DJANGO_CREATE_SUPERUSER
+              value: "1"
+            - name: DJANGO_SUPERUSER_USERNAME
+              value: "rootAdmin"
+            - name: DJANGO_SUPERUSER_EMAIL
+              value: "CoG@{{ .Values.hostname }}"
             # Other SLCS-specific settings
             - name: ESGF_SLCS_URL
               value: "https://{{ .Values.hostname }}/esgf-slcs"
@@ -104,9 +175,11 @@ spec:
           volumeMounts:
             - mountPath: /esg/certificates/slcsca
               name: slcsca
-              readOnly: true
             - mountPath: /esg/certificates/slcsca-trustroots
               name: trustroots
+            - mountPath: /esg/certificates/esg-trust-bundle.pem
+              name: trust-bundle
+              subPath: esg-trust-bundle.pem
           resources:
 {{ toYaml .Values.slcs.resources | indent 12 }}
       volumes:
@@ -115,3 +188,6 @@ spec:
             secretName: "{{ .Release.Name }}-slcs-ca"
         - name: trustroots
           emptyDir: {}
+        - name: trust-bundle
+          configMap:
+            name: "{{ .Release.Name }}-trust-bundle"

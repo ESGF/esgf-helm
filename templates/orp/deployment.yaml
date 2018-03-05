@@ -19,9 +19,8 @@ spec:
 {{ include "default-labels" . | indent 8 }}
         component: orp
       annotations:
-        checksum/orp-secrets: {{ include (print $.Template.BasePath "/orp/secret.yaml") . | sha256sum }}
-        checksum/hostcert-pkcs12: {{ include (print $.Template.BasePath "/orp/configmap.yaml") . | sha256sum }}
-        checksum/hostcert: {{ include (print $.Template.BasePath "/shared/configmap-hostcert.yaml") . | sha256sum }}
+        checksum/hostcert: {{ include (print $.Template.BasePath "/certificates/hostcert-secret.yaml") . | sha256sum }}
+        checksum/trust-bundle: {{ include (print $.Template.BasePath "/certificates/trust-bundle-configmap.yaml") . | sha256sum }}
     spec:
       containers:
         - name: orp
@@ -30,8 +29,11 @@ spec:
           ports:
             - name: http
               containerPort: 8080
-          livenessProbe:
-            httpGet:
+          # The readiness and liveness probes run the same thing, but the liveness
+          # probe just waits a while before kicking in whereas the readiness probe
+          # starts straight away
+          readinessProbe:
+            httpGet: &probe
               path: /esg-orp/home.htm
               port: 8080
               # This endpoint requires HTTPS, so simulate it
@@ -42,33 +44,31 @@ spec:
                   value: https
             initialDelaySeconds: 10
             periodSeconds: 10
+          livenessProbe:
+            httpGet: *probe
+            initialDelaySeconds: 60
+            periodSeconds: 10
           env:
             - name: ESGF_HOSTNAME
               value: "{{ .Values.hostname }}"
             - name: ESGF_DATABASE_HOST
               value: "{{ .Release.Name }}-postgres"
-            - name: ESGF_KEYSTORE_FILE
-              value: /esg/certificates/esg-hostcert-bundle.p12
-            - name: ESGF_KEYSTORE_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: "{{ .Release.Name }}-orp-secrets"
-                  key: "java-hostcert-bundle-password"
-            - name: ESGF_KEYSTORE_ALIAS
-              value: "{{ .Values.hostname }}"
+            - name: ESGF_SAML_CERT_FILE
+              value: /esg/certificates/hostcert/hostcert.crt
+            - name: ESGF_SAML_KEY_FILE
+              value: /esg/certificates/hostcert/hostcert.key
           volumeMounts:
-            - mountPath: /esg/certificates/esg-hostcert-bundle.p12.base64
-              name: esg-hostcert-bundle
-              subPath: esg-hostcert-bundle.p12.base64
-            - mountPath: /usr/local/share/ca-certificates/hostcert.crt
+            - mountPath: /esg/certificates/hostcert
               name: hostcert
-              subPath: hostcert.crt
+            - mountPath: /esg/certificates/esg-trust-bundle.pem
+              name: trust-bundle
+              subPath: esg-trust-bundle.pem
           resources:
 {{ toYaml .Values.orp.resources | indent 12 }}
       volumes:
-        - name: esg-hostcert-bundle
-          configMap:
-            name: "{{ .Release.Name }}-hostcert-pkcs12"
         - name: hostcert
+          secret:
+            secretName: "{{ .Release.Name }}-hostcert"
+        - name: trust-bundle
           configMap:
-            name: "{{ .Release.Name }}-hostcert"
+            name: "{{ .Release.Name }}-trust-bundle"

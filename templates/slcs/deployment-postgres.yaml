@@ -19,7 +19,7 @@ spec:
 {{ include "default-labels" . | indent 8 }}
         component: slcs-postgres
       annotations:
-        checksum/secret: {{ include (print $.Template.BasePath "/slcs/secret.yaml") . | sha256sum }}
+        checksum/slcs-secrets: {{ include (print $.Template.BasePath "/slcs/secret.yaml") . | sha256sum }}
     spec:
       containers:
         - name: slcs-postgres

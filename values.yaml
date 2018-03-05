@@ -29,10 +29,15 @@ indexNode:
     replicas: 1
     # Use this to set the resources available to each index node container
     resources: {}
-    # The number of shards to use for Solr collections
-    solrNumShards: 1
-    # The replication factor to use for Solr collections
-    solrReplicationFactor: 1
+    # Configuration for Solr collections
+    # Must have maxShardsPerNode >= (numShards * replicationFactor) / replicas
+    solrCollections:
+      # Number of shards to use for Solr collections
+      mumShards: 1
+      # Replication factor to use for Solr collections
+      replicationFactor: 1
+      # Maximum number of shards allowed per node for a given collection
+      maxShardsPerNode: 1
 
 idpNode:
     image: cedadev/esgf-idp-node
@@ -93,3 +98,11 @@ slcs:
       imageTag: 10
       # imagePullPolicy: "IfNotPresent"
       resources: {}
+
+proxy:
+  image: cedadev/esgf-proxy
+  imageTag: latest
+  # imagePullPolicy: "IfNotPresent"
+  replicas: 1
+  # Use this to set the resources available to each index node container
+  resources: {}

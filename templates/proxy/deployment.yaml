@@ -1,0 +1,82 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: "{{ .Release.Name }}-proxy"
+  labels:
+{{ include "default-labels" . | indent 4 }}
+    component: proxy
+spec:
+  replicas: {{ .Values.proxy.replicas }}
+  # Select pods on release and component only, rather than all labels
+  # This means that the selector will match all pods from all versions of the chart when upgrading
+  selector:
+    matchLabels:
+      release: {{ .Release.Name }}
+      component: proxy
+  template:
+    metadata:
+      labels:
+{{ include "default-labels" . | indent 8 }}
+        component: proxy
+      annotations:
+        checksum/hostcert: {{ include (print $.Template.BasePath "/certificates/hostcert-secret.yaml") . | sha256sum }}
+        checksum/trust-bundle: {{ include (print $.Template.BasePath "/certificates/trust-bundle-configmap.yaml") . | sha256sum }}
+    spec:
+      containers:
+        - name: slcs
+          image: "{{ .Values.proxy.image }}:{{ .Values.proxy.imageTag }}"
+          imagePullPolicy: {{ default "" .Values.proxy.imagePullPolicy | quote }}
+          ports:
+            - name: http
+              containerPort: 80
+            - name: https
+              containerPort: 443
+#          livenessProbe:
+#            httpGet:
+#              path: /esgf-slcs
+#              port: 8000
+              # The ALLOWED_HOSTS setting means that the app will only accept
+              # requests from the correct host
+#              httpHeaders:
+#                - name: Host
+#                  value: "{{ .Values.hostname }}"
+#                - name: X-Forwarded-Host
+#                  value: "{{ .Values.hostname }}"
+#                - name: X-Forwarded-Proto
+#                  value: https
+#            initialDelaySeconds: 10
+#            periodSeconds: 10
+          env:
+            - name: ESGF_HOSTNAME
+              value: "{{ .Values.hostname }}"
+            - name: ESGF_SOLR_UPSTREAM
+              value: "http://{{ .Release.Name }}-solr.{{ .Release.Namespace }}.svc.cluster.local:8983"
+            - name: ESGF_INDEX_NODE_UPSTREAM
+              value: "http://{{ .Release.Name }}-index-node.{{ .Release.Namespace }}.svc.cluster.local:8080"
+            - name: ESGF_TDS_UPSTREAM
+              value: "http://{{ .Release.Name }}-tds.{{ .Release.Namespace }}.svc.cluster.local:8080"
+            - name: ESGF_COG_UPSTREAM
+              value: "http://{{ .Release.Name }}-cog.{{ .Release.Namespace }}.svc.cluster.local:8000"
+            - name: ESGF_ORP_UPSTREAM
+              value: "http://{{ .Release.Name }}-orp.{{ .Release.Namespace }}.svc.cluster.local:8080"
+            - name: ESGF_IDP_UPSTREAM
+              value: "http://{{ .Release.Name }}-idp-node.{{ .Release.Namespace }}.svc.cluster.local:8080"
+            - name: ESGF_SLCS_UPSTREAM
+              value: "http://{{ .Release.Name }}-slcs.{{ .Release.Namespace }}.svc.cluster.local:8000"
+            - name: ESGF_AUTH_UPSTREAM
+              value: "http://{{ .Release.Name }}-auth.{{ .Release.Namespace }}.svc.cluster.local:8000"
+          volumeMounts:
+            - mountPath: /etc/nginx/ssl
+              name: hostcert
+            - mountPath: /esg/certificates/esg-trust-bundle.pem
+              name: trust-bundle
+              subPath: esg-trust-bundle.pem
+          resources:
+{{ toYaml .Values.proxy.resources | indent 12 }}
+      volumes:
+        - name: hostcert
+          secret:
+            secretName: "{{ .Release.Name }}-hostcert"
+        - name: trust-bundle
+          configMap:
+            name: "{{ .Release.Name }}-trust-bundle"

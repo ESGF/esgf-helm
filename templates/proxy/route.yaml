@@ -1,0 +1,15 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: "{{ .Release.Name }}-proxy"
+  labels:
+{{ include "default-labels" . | indent 4 }}
+    component: proxy
+spec:
+  host: "{{ .Values.hostname }}"
+  to:
+    kind: Service
+    name: "{{ .Release.Name }}-proxy"
+  tls:
+    insecureEdgeTerminationPolicy: Redirect
+    termination: passthrough
