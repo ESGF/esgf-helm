@@ -19,7 +19,8 @@ spec:
 {{ include "default-labels" . | indent 8 }}
         component: tds
       annotations:
-        checksum/tds-secrets: {{ include (print $.Template.BasePath "/tds/secret.yaml") . | sha256sum }}
+        checksum/auth-secrets: {{ include (print $.Template.BasePath "/auth/secret.yaml") . | sha256sum }}
+        checksum/cog-secrets: {{ include (print $.Template.BasePath "/cog/secret.yaml") . | sha256sum }}
         checksum/trust-bundle: {{ include (print $.Template.BasePath "/certificates/trust-bundle-configmap.yaml") . | sha256sum }}
     spec:
       containers:
@@ -32,16 +33,16 @@ spec:
           # The readiness and liveness probes run the same thing, but the liveness
           # probe just waits a while before kicking in whereas the readiness probe
           # starts straight away
-#          readinessProbe:
-#            httpGet: &probe
-#              path: /thredds
-#              port: 8080
-#            initialDelaySeconds: 10
-#            periodSeconds: 10
-#          livenessProbe:
-#            httpGet: *probe
-#            initialDelaySeconds: 60
-#            periodSeconds: 10
+          readinessProbe:
+            httpGet: &probe
+              path: /thredds
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: *probe
+            initialDelaySeconds: 60
+            periodSeconds: 10
           env:
             - name: ESGF_HOSTNAME
               value: "{{ .Values.hostname }}"
@@ -50,12 +51,12 @@ spec:
             - name: ESGF_COOKIE_SECRET_KEY
               valueFrom:
                 secretKeyRef:
-                  name: "{{ .Release.Name }}-tds-secrets"
+                  name: "{{ .Release.Name }}-auth-secrets"
                   key: "shared-cookie-secret-key"
             - name: ESGF_TDS_ADMIN_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: "{{ .Release.Name }}-tds-secrets"
+                  name: "{{ .Release.Name }}-cog-secrets"
                   key: "rootadmin-password"
           volumeMounts:
             - mountPath: /esg/content/thredds/esgcet

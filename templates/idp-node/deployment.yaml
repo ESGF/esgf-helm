@@ -37,7 +37,7 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: "{{ .Release.Name }}-postgres-secrets"
-                  key: database-password
+                  key: "database-password"
             - name: PGDATABASE
               value: esgcet
           command:
@@ -86,7 +86,7 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: "{{ .Release.Name }}-postgres-secrets"
-                  key: database-password
+                  key: "database-password"
           volumeMounts:
             - mountPath: /esg/certificates/esg-trust-bundle.pem
               name: trust-bundle
