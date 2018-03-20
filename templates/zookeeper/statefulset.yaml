@@ -52,11 +52,6 @@ spec:
               containerPort: 2888
             - name: leader-election
               containerPort: 3888
-          volumeMounts:
-            - name: zk-data
-              mountPath: /data
-            - name: zk-datalog
-              mountPath: /datalog
           env:
             - name: ZOO_REPLICAS
               value: "{{ .Values.zookeeper.replicas }}"
@@ -108,8 +103,45 @@ spec:
             periodSeconds: 10
           resources:
 {{ toYaml .Values.zookeeper.resources | indent 12 }}
+          volumeMounts:
+            - name: zk-data
+              mountPath: /data
+            - name: zk-datalog
+              mountPath: /datalog
+{{- if not .Values.zookeeper.persistence.enabled }}
       volumes:
         - name: zk-data
           emptyDir: {}
         - name: zk-datalog
           emptyDir: {}
+{{- else }}
+  volumeClaimTemplates:
+    - metadata:
+        name: zk-data
+        labels:
+{{ include "default-labels" . | indent 10 }}
+          component: zookeeper
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: {{ .Values.zookeeper.persistence.data.storageClass | default "" | quote }}
+        resources:
+{{ toYaml .Values.zookeeper.persistence.data.resources | indent 10 }}
+{{- if .Values.zookeeper.persistence.data.selector }}
+{{ toYaml .Values.zookeeper.persistence.data.selector | indent 8 }}
+{{- end }}
+    - metadata:
+        name: zk-datalog
+        labels:
+{{ include "default-labels" . | indent 10 }}
+          component: zookeeper
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: {{ .Values.zookeeper.persistence.datalog.storageClass | default "" | quote }}
+        resources:
+{{ toYaml .Values.zookeeper.persistence.datalog.resources | indent 10 }}
+{{- if .Values.zookeeper.persistence.datalog.selector }}
+{{ toYaml .Values.zookeeper.persistence.datalog.selector | indent 8 }}
+{{- end }}
+{{- end }}

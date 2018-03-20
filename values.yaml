@@ -6,6 +6,16 @@ zookeeper:
     replicas: 1
     # Use this to set the resources available to each zookeeper container
     resources: {}
+    persistence:
+      enabled: false  # Set this to true to use PVCs with the following properties
+      data:
+        resources:
+          requests: 10Gi
+        storageClass: ""
+      datalog:
+        resources:
+          requests: 10Gi
+        storageClass: ""
 
 solr:
     image: cedadev/esgf-solr
@@ -14,6 +24,11 @@ solr:
     replicas: 1
     # Use this to set the resources available to each solr container
     resources: {}
+    persistence:
+      enabled: false  # Set this to true to use PVCs with the following properties
+      resources:
+        requests: 10Gi
+      storageClass: ""
 
 postgres:
     image: cedadev/esgf-postgres
@@ -21,6 +36,11 @@ postgres:
     # imagePullPolicy: "IfNotPresent"
     # Use this to set the resources available to the postgres container
     resources: {}
+    persistence:
+      enabled: false  # Set this to true to use a PVC with the following properties
+      resources:
+        requests: 10Gi
+      storageClass: ""
 
 indexNode:
     image: cedadev/esgf-index-node
@@ -84,6 +104,11 @@ auth:
       imageTag: 10
       # imagePullPolicy: "IfNotPresent"
       resources: {}
+      persistence:
+        enabled: false  # Set this to true to use a PVC with the following properties
+        resources:
+          requests: 10Gi
+        storageClass: ""
 
 slcs:
     image: cedadev/esgf-slcs
@@ -98,6 +123,11 @@ slcs:
       imageTag: 10
       # imagePullPolicy: "IfNotPresent"
       resources: {}
+      persistence:
+        enabled: false  # Set this to true to use a PVC with the following properties
+        resources:
+          requests: 10Gi
+        storageClass: ""
 
 proxy:
   image: cedadev/esgf-proxy

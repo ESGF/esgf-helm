@@ -17,7 +17,7 @@ eval $(minishift oc-env)
 ```
 
 Pods must be able to loop back to themselves via their own service - this is known
-as "hairpin mode", and requires us to put the docker bridge network into promiscuous
+as "hairpin mode", and requires the docker bridge network to be in promiscuous
 mode:
 
 ```sh

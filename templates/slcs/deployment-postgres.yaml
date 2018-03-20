@@ -1,3 +1,22 @@
+{{- if .Values.slcs.postgres.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: "{{ .Release.Name }}-slcs-postgres"
+  labels:
+{{ include "default-labels" . | indent 4 }}
+    component: slcs-postgres
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: {{ .Values.slcs.postgres.persistence.storageClass | default "" | quote }}
+  resources:
+{{ toYaml .Values.slcs.postgres.persistence.resources | indent 4 }}
+{{- if .Values.slcs.postgres.persistence.selector }}
+{{ toYaml .Values.slcs.postgres.persistence.selector | indent 2 }}
+{{- end }}
+---
+{{- end }}
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
@@ -52,4 +71,9 @@ spec:
 {{ toYaml .Values.slcs.postgres.resources | indent 12 }}
       volumes:
         - name: postgres-data
+{{- if .Values.slcs.postgres.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: "{{ .Release.Name }}-slcs-postgres"
+{{- else }}
           emptyDir: {}
+{{- end }}
