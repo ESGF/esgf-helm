@@ -55,8 +55,39 @@ Configure and deploy ESGF components:
 export ESGF_HOSTNAME="esgf.$(minishift ip).xip.io"
 # This should be an empty directory
 export ESGF_CONFIG=/path/to/esgf/config
+# Generate configuration
 docker-compose run esgf-setup generate-secrets
 docker-compose run esgf-setup generate-test-certificates
 docker-compose run esgf-setup create-trust-bundle
-docker-compose run -T esgf-setup helm-values | helm upgrade esgf . --install  -f -
+# Deploy the ESGF components
+docker-compose run -T esgf-setup helm-values | helm upgrade esgf . --install -f -
+```
+
+Publish the test dataset (similar to [esgf-docker](https://cedadev.github.io/esgf-docker/usage/publishing/)):
+
+```sh
+# Scale up the publisher deployment
+$ oc scale --replicas=1 deployment esgf-publisher
+# Wait for the publisher pod to start and get the pod name
+# The first time you scale up is when the image gets pulled, so this might take
+# a long time
+$ oc get pods -w -l "component=publisher"
+# Open a shell inside the pod
+$ oc exec -it <publisher pod name> bash
+# Download the data
+[publisher] $ mkdir -p /esg/data/test
+[publisher] $ wget -O /esg/data/test/sftlf.nc http://distrib-coffee.ipsl.jussieu.fr/pub/esgf/dist/externals/sftlf.nc
+# Make sure the correct SSL_CERT_FILE is being used
+[publisher] $ export SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+# Fetch a certificate
+[publisher] $ fetch-certificate
+# Publish the data
+[publisher] $ esgprep mapfile --project test /esg/data/test
+[publisher] $ esgpublish --project test --map mapfiles/test.test.map --service fileservice
+[publisher] $ esgpublish --project test --map mapfiles/test.test.map --service fileservice --noscan --thredds
+[publisher] $ esgpublish --project test --map mapfiles/test.test.map --service fileservice --noscan --publish
+# Exit the publisher pod
+[publisher] $ exit
+# Scale the deployment back down to remove the pod
+$ oc scale --replicas=0 deployment esgf-publisher
 ```

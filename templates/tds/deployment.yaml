@@ -1,3 +1,37 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: "{{ .Release.Name }}-tds-data"
+  labels:
+{{ include "default-labels" . | indent 4 }}
+    component: tds
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: {{ .Values.tds.data.storageClass | default "" | quote }}
+  resources:
+{{ toYaml .Values.tds.data.resources | indent 4 }}
+{{- if .Values.tds.data.selector }}
+{{ toYaml .Values.tds.data.selector | indent 2 }}
+{{- end }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: "{{ .Release.Name }}-tds-content"
+  labels:
+{{ include "default-labels" . | indent 4 }}
+    component: tds
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: {{ .Values.tds.content.storageClass | default "" | quote }}
+  resources:
+{{ toYaml .Values.tds.content.resources | indent 4 }}
+{{- if .Values.tds.content.selector }}
+{{ toYaml .Values.tds.content.selector | indent 2 }}
+{{- end }}
+---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
@@ -48,6 +82,8 @@ spec:
               value: "{{ .Values.hostname }}"
             - name: ESGF_DATABASE_HOST
               value: "{{ .Release.Name }}-postgres"
+            - name: ESGF_SOLR_HOSTNAME
+              value: "{{ .Release.Name }}-solr:8983"
             - name: ESGF_COOKIE_SECRET_KEY
               valueFrom:
                 secretKeyRef:
@@ -63,6 +99,7 @@ spec:
               name: tds-content
             - mountPath: /esg/data
               name: tds-data
+              readOnly: true
             - mountPath: /esg/certificates/esg-trust-bundle.pem
               name: trust-bundle
               subPath: esg-trust-bundle.pem
@@ -70,9 +107,11 @@ spec:
 {{ toYaml .Values.tds.resources | indent 12 }}
       volumes:
         - name: tds-content
-          emptyDir: {}
+          persistentVolumeClaim:
+            claimName: "{{ .Release.Name }}-tds-content"
         - name: tds-data
-          emptyDir: {}
+          persistentVolumeClaim:
+            claimName: "{{ .Release.Name }}-tds-data"
         - name: trust-bundle
           configMap:
             name: "{{ .Release.Name }}-trust-bundle"

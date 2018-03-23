@@ -8,14 +8,16 @@ zookeeper:
     resources: {}
     persistence:
       enabled: false  # Set this to true to use PVCs with the following properties
-      data:
-        resources:
-          requests: 10Gi
-        storageClass: ""
-      datalog:
-        resources:
-          requests: 10Gi
-        storageClass: ""
+      # data:
+      #   resources:
+      #     requests:
+      #       storage: 10Gi
+      #   storageClass: ""
+      # datalog:
+      #   resources:
+      #     requests:
+      #       storage: 10Gi
+      #   storageClass: ""
 
 solr:
     image: cedadev/esgf-solr
@@ -26,9 +28,10 @@ solr:
     resources: {}
     persistence:
       enabled: false  # Set this to true to use PVCs with the following properties
-      resources:
-        requests: 10Gi
-      storageClass: ""
+      # resources:
+      #   requests:
+      #     storage: 10Gi
+      # storageClass: ""
 
 postgres:
     image: cedadev/esgf-postgres
@@ -38,9 +41,10 @@ postgres:
     resources: {}
     persistence:
       enabled: false  # Set this to true to use a PVC with the following properties
-      resources:
-        requests: 10Gi
-      storageClass: ""
+      # resources:
+      #   requests:
+      #     storage: 10Gi
+      # storageClass: ""
 
 indexNode:
     image: cedadev/esgf-index-node
@@ -82,6 +86,16 @@ tds:
     replicas: 1
     # Use this to set the resources available to each index node container
     resources: {}
+    data:
+      storageClass: ""
+      resources:
+        requests:
+          storage: 10Gi
+    content:
+      storageClass: ""
+      resources:
+        requests:
+          storage: 10Gi
 
 cog:
     image: cedadev/esgf-cog
@@ -105,10 +119,11 @@ auth:
       # imagePullPolicy: "IfNotPresent"
       resources: {}
       persistence:
-        enabled: false  # Set this to true to use a PVC with the following properties
-        resources:
-          requests: 10Gi
-        storageClass: ""
+        enabled: false  # Set this to true to use a PVC with the following
+        # resources:
+        #   requests:
+        #     storage: 10Gi
+        # storageClass: ""
 
 slcs:
     image: cedadev/esgf-slcs
@@ -125,9 +140,10 @@ slcs:
       resources: {}
       persistence:
         enabled: false  # Set this to true to use a PVC with the following properties
-        resources:
-          requests: 10Gi
-        storageClass: ""
+        # resources:
+        #   requests:
+        #     storage: 10Gi
+        # storageClass: ""
 
 proxy:
   image: cedadev/esgf-proxy
@@ -135,4 +151,10 @@ proxy:
   # imagePullPolicy: "IfNotPresent"
   replicas: 1
   # Use this to set the resources available to each index node container
+  resources: {}
+
+publisher:
+  image: cedadev/esgf-publisher
+  imageTag: latest
+  # imagePullPolicy: "IfNotPresent"
   resources: {}
