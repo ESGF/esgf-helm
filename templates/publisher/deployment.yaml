@@ -1,0 +1,118 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: "{{ .Release.Name }}-publisher"
+  labels:
+{{ include "default-labels" . | indent 4 }}
+    component: publisher
+spec:
+  # Every time the publisher deployment is rolled out, the number of replicas is set to zero
+  # To perform a publish, scale up the deployment to 1 replica, perform the publish and scale back down to 0
+  replicas: 0
+  # Select pods on release and component only, rather than all labels
+  # This means that the selector will match all pods from all versions of the chart when upgrading
+  selector:
+    matchLabels:
+      release: {{ .Release.Name }}
+      component: publisher
+  template:
+    metadata:
+      labels:
+{{ include "default-labels" . | indent 8 }}
+        component: publisher
+      annotations:
+        checksum/postgres-secrets: {{ include (print $.Template.BasePath "/postgres/secret.yaml") . | sha256sum }}
+        checksum/cog-secrets: {{ include (print $.Template.BasePath "/cog/secret.yaml") . | sha256sum }}
+        checksum/trust-bundle: {{ include (print $.Template.BasePath "/certificates/trust-bundle-configmap.yaml") . | sha256sum }}
+    spec:
+      initContainers:
+        # Wait for postgres to become available before starting
+        - name: ensure-postgres
+          image: postgres
+          env:
+            - name: PGHOST
+              value: "{{ .Release.Name }}-postgres"
+            - name: PGPORT
+              value: "5432"
+            - name: PGUSER
+              value: dbsuper
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Release.Name }}-postgres-secrets"
+                  key: "database-password"
+            - name: PGDATABASE
+              value: esgcet
+          command:
+            # Try every 5 seconds for no longer than 10 mins
+            - bash
+            - -c
+            - |
+              for i in $(seq 120); do
+                sleep 5
+                echo "Attempt $i of 120"
+                if pg_isready; then exit 0; fi
+              done
+              exit 1
+        # Ensure the index node is up before starting
+        - name: ensure-index-node
+          image: radial/busyboxplus:curl
+          command:
+            # Try every 5 seconds for no longer than 10 mins
+            - sh
+            - -c
+            - |
+              for i in $(seq 120); do
+                sleep 5
+                echo "Attempt $i of 120"
+                if curl -k -m 1 -fsSL https://{{ .Values.hostname }}/esg-search/search; then exit 0; fi
+              done
+              exit 1
+      containers:
+        - name: publisher
+          image: "{{ .Values.publisher.image }}:{{ .Values.publisher.imageTag }}"
+          imagePullPolicy: {{ default "" .Values.publisher.imagePullPolicy | quote }}
+          args:
+            - "bash"
+            - "-c"
+            - "sleep infinity"
+          env:
+            - name: ESGF_HOSTNAME
+              value: "{{ .Values.hostname }}"
+            - name: ESGF_DATABASE_HOST
+              value: "{{ .Release.Name }}-postgres"
+            - name: ESGF_DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Release.Name }}-postgres-secrets"
+                  key: "database-password"
+            - name: ESGF_TDS_USERNAME
+              value: rootAdmin
+            - name: ESGF_TDS_PASSWORD_FILE
+              value: /esg/secrets/rootadmin-password
+          volumeMounts:
+            - mountPath: /esg/content/thredds/esgcet
+              name: tds-content
+            - mountPath: /esg/data
+              name: tds-data
+            - mountPath: /esg/secrets/rootadmin-password
+              name: cog-secrets
+              subPath: rootadmin-password
+            - mountPath: /esg/certificates/esg-trust-bundle.pem
+              name: trust-bundle
+              subPath: esg-trust-bundle.pem
+          resources:
+{{ toYaml .Values.publisher.resources | indent 12 }}
+      volumes:
+        - name: tds-content
+          persistentVolumeClaim:
+            claimName: "{{ .Release.Name }}-tds-content"
+        - name: tds-data
+          persistentVolumeClaim:
+            claimName: "{{ .Release.Name }}-tds-data"
+        - name: cog-secrets
+          secret:
+            secretName: "{{ .Release.Name }}-cog-secrets"
+        - name: trust-bundle
+          configMap:
+            name: "{{ .Release.Name }}-trust-bundle"
