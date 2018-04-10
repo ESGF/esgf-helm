@@ -5,6 +5,7 @@ metadata:
   labels:
 {{ include "default-labels" . | indent 4 }}
     component: auth
+    auth-role: frontend
 spec:
   replicas: {{ .Values.auth.replicas }}
   # Select pods on release and component only, rather than all labels
@@ -13,11 +14,13 @@ spec:
     matchLabels:
       release: {{ .Release.Name }}
       component: auth
+      auth-role: frontend
   template:
     metadata:
       labels:
 {{ include "default-labels" . | indent 8 }}
         component: auth
+        auth-role: frontend
       annotations:
         checksum/auth-secrets: {{ include (print $.Template.BasePath "/auth/secret.yaml") . | sha256sum }}
         checksum/trust-bundle: {{ include (print $.Template.BasePath "/certificates/trust-bundle-configmap.yaml") . | sha256sum }}
@@ -25,10 +28,11 @@ spec:
       initContainers:
         # Wait for postgres to become available before starting
         - name: ensure-postgres
-          image: postgres
+          image: "{{ .Values.postgres.image }}:{{ .Values.postgres.imageTag }}"
+          imagePullPolicy: {{ default "" .Values.postgres.imagePullPolicy | quote }}
           env:
             - name: PGHOST
-              value: "{{ .Release.Name }}-auth-postgres"
+              value: "{{ .Release.Name }}-postgres-auth"
             - name: PGPORT
               value: "5432"
             - name: PGUSER
@@ -84,9 +88,7 @@ spec:
             - name: ESGF_HOSTNAME
               value: "{{ .Values.hostname }}"
             - name: ESGF_DATABASE_HOST
-              value: "{{ .Release.Name }}-postgres"
-            - name: ESGF_SOLR_HOSTNAME
-              value: "{{ .Release.Name }}-solr:8983"
+              value: "{{ .Release.Name }}-postgres-esgcet"
             # ESGF-Auth settings
             - name: SCRIPT_NAME
               value: /esgf-auth
@@ -103,10 +105,8 @@ spec:
             # Database settings
             - name: DJANGO_DATABASE_DEFAULT_ENGINE
               value: django.db.backends.postgresql
-            - name: DJANGO_DATABASE_DEFAULT_NAME
-              value: auth
             - name: DJANGO_DATABASE_DEFAULT_HOST
-              value: "{{ .Release.Name }}-auth-postgres"
+              value: "{{ .Release.Name }}-postgres-auth"
             - name: DJANGO_DATABASE_DEFAULT_PORT
               value: "5432"
             - name: DJANGO_DATABASE_DEFAULT_USER
@@ -116,6 +116,8 @@ spec:
                 secretKeyRef:
                   name: "{{ .Release.Name }}-auth-secrets"
                   key: "auth-database-password"
+            - name: DJANGO_DATABASE_DEFAULT_NAME
+              value: auth
           volumeMounts:
             - mountPath: /esg/certificates/esg-trust-bundle.pem
               name: trust-bundle

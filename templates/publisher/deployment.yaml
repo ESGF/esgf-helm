@@ -21,26 +21,27 @@ spec:
 {{ include "default-labels" . | indent 8 }}
         component: publisher
       annotations:
-        checksum/postgres-secrets: {{ include (print $.Template.BasePath "/postgres/secret.yaml") . | sha256sum }}
+        checksum/postgres-esgcet-secrets: {{ include (print $.Template.BasePath "/postgres-esgcet/secret.yaml") . | sha256sum }}
         checksum/cog-secrets: {{ include (print $.Template.BasePath "/cog/secret.yaml") . | sha256sum }}
         checksum/trust-bundle: {{ include (print $.Template.BasePath "/certificates/trust-bundle-configmap.yaml") . | sha256sum }}
     spec:
       initContainers:
-        # Wait for postgres to become available before starting
-        - name: ensure-postgres
-          image: postgres
+        # Wait for postgres-esgcet to become available before starting
+        - name: ensure-postgres-esgcet
+          image: "{{ .Values.postgres.image }}:{{ .Values.postgres.imageTag }}"
+          imagePullPolicy: {{ default "" .Values.postgres.imagePullPolicy | quote }}
           env:
             - name: PGHOST
-              value: "{{ .Release.Name }}-postgres"
+              value: "{{ .Release.Name }}-postgres-esgcet"
             - name: PGPORT
               value: "5432"
             - name: PGUSER
-              value: dbsuper
+              value: esgcet
             - name: PGPASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: "{{ .Release.Name }}-postgres-secrets"
-                  key: "database-password"
+                  name: "{{ .Release.Name }}-postgres-esgcet-secrets"
+                  key: "database-publisher-password"
             - name: PGDATABASE
               value: esgcet
           command:
@@ -80,24 +81,26 @@ spec:
             - name: ESGF_HOSTNAME
               value: "{{ .Values.hostname }}"
             - name: ESGF_DATABASE_HOST
-              value: "{{ .Release.Name }}-postgres"
+              value: "{{ .Release.Name }}-postgres-esgcet"
+            - name: ESGF_DATABASE_USER
+              value: esgcet
             - name: ESGF_DATABASE_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: "{{ .Release.Name }}-postgres-secrets"
-                  key: "database-password"
+                  name: "{{ .Release.Name }}-postgres-esgcet-secrets"
+                  key: "database-publisher-password"
             - name: ESGF_TDS_USERNAME
               value: rootAdmin
-            - name: ESGF_TDS_PASSWORD_FILE
-              value: /esg/secrets/rootadmin-password
+            - name: ESGF_TDS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Release.Name }}-cog-secrets"
+                  key: "rootadmin-password"
           volumeMounts:
             - mountPath: /esg/content/thredds/esgcet
               name: tds-content
             - mountPath: /esg/data
               name: tds-data
-            - mountPath: /esg/secrets/rootadmin-password
-              name: cog-secrets
-              subPath: rootadmin-password
             - mountPath: /esg/certificates/esg-trust-bundle.pem
               name: trust-bundle
               subPath: esg-trust-bundle.pem
@@ -110,9 +113,6 @@ spec:
         - name: tds-data
           persistentVolumeClaim:
             claimName: "{{ .Release.Name }}-tds-data"
-        - name: cog-secrets
-          secret:
-            secretName: "{{ .Release.Name }}-cog-secrets"
         - name: trust-bundle
           configMap:
             name: "{{ .Release.Name }}-trust-bundle"

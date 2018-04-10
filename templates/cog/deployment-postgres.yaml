@@ -1,31 +1,31 @@
-{{- if .Values.auth.postgres.persistence.enabled }}
+{{- if .Values.cog.postgres.persistence.enabled }}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: "{{ .Release.Name }}-postgres-auth"
+  name: "{{ .Release.Name }}-postgres-cog"
   labels:
 {{ include "default-labels" . | indent 4 }}
-    component: auth
-    auth-role: database
+    component: cog
+    cog-role: database
 spec:
   accessModes:
     - ReadWriteOnce
-  storageClassName: {{ .Values.auth.postgres.persistence.storageClass | default "" | quote }}
+  storageClassName: {{ .Values.cog.postgres.persistence.storageClass | default "" | quote }}
   resources:
     requests:
-      storage: {{ .Values.auth.postgres.persistence.size }}
+      storage: {{ .Values.cog.postgres.persistence.size }}
   selector:
-{{ toYaml .Values.auth.postgres.persistence.selector | indent 4 }}
+{{ toYaml .Values.cog.postgres.persistence.selector | indent 4 }}
 ---
 {{- end }}
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: "{{ .Release.Name }}-postgres-auth"
+  name: "{{ .Release.Name }}-postgres-cog"
   labels:
 {{ include "default-labels" . | indent 4 }}
-    component: auth
-    auth-role: database
+    component: cog
+    cog-role: database
 spec:
   replicas: 1
   # Select pods on release and component only, rather than all labels
@@ -33,21 +33,21 @@ spec:
   selector:
     matchLabels:
       release: {{ .Release.Name }}
-      component: auth
-      auth-role: database
+      component: cog
+      cog-role: database
   template:
     metadata:
       labels:
 {{ include "default-labels" . | indent 8 }}
-        component: auth
-        auth-role: database
+        component: cog
+        cog-role: database
       annotations:
-        checksum/auth-secrets: {{ include (print $.Template.BasePath "/auth/secret.yaml") . | sha256sum }}
+        checksum/postgres-esgcet-secrets: {{ include (print $.Template.BasePath "/postgres-esgcet/secret.yaml") . | sha256sum }}
     spec:
       containers:
-        - name: postgres-auth
-          image: "{{ .Values.auth.postgres.image }}:{{ .Values.auth.postgres.imageTag }}"
-          imagePullPolicy: {{ default "" .Values.auth.postgres.imagePullPolicy | quote }}
+        - name: postgres-cog
+          image: "{{ .Values.cog.postgres.image }}:{{ .Values.cog.postgres.imageTag }}"
+          imagePullPolicy: {{ default "" .Values.cog.postgres.imagePullPolicy | quote }}
           ports:
             - name: postgres
               containerPort: 5432
@@ -65,24 +65,24 @@ spec:
             periodSeconds: 10
           env:
             - name: POSTGRESQL_DATABASE
-              value: auth
+              value: cogdb
             - name: POSTGRESQL_USER
-              value: authuser
+              value: dbsuper
             - name: POSTGRESQL_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: "{{ .Release.Name }}-auth-secrets"
-                  key: "auth-database-password"
+                  name: "{{ .Release.Name }}-postgres-esgcet-secrets"
+                  key: "database-password"
           volumeMounts:
             - name: postgres-data
               mountPath: /var/lib/pgsql/data
           resources:
-{{ toYaml .Values.auth.postgres.resources | indent 12 }}
+{{ toYaml .Values.cog.postgres.resources | indent 12 }}
       volumes:
         - name: postgres-data
-{{- if .Values.auth.postgres.persistence.enabled }}
+{{- if .Values.cog.postgres.persistence.enabled }}
           persistentVolumeClaim:
-            claimName: "{{ .Release.Name }}-postgres-auth"
+            claimName: "{{ .Release.Name }}-postgres-cog"
 {{- else }}
           emptyDir: {}
 {{- end }}
