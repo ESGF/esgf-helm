@@ -1,149 +1,136 @@
-zookeeper:
-    image: zookeeper
-    imageTag: latest
-    # imagePullPolicy: "IfNotPresent"
-    # Currently, this cannot be scaled dynamically. It must be odd and > 3 for quorum to be maintained
-    replicas: 1
-    # Use this to set the resources available to each zookeeper container
-    resources: {}
-    persistence:
-      enabled: false  # Set this to true to use PVCs with the following properties
-      # data:
-      #   resources:
-      #     requests:
-      #       storage: 10Gi
-      #   storageClass: ""
-      # datalog:
-      #   resources:
-      #     requests:
-      #       storage: 10Gi
-      #   storageClass: ""
-
 solr:
-    image: cedadev/esgf-solr
-    imageTag: latest
-    # imagePullPolicy: "IfNotPresent"
-    replicas: 1
-    # Use this to set the resources available to each solr container
+  image: cedadev/esgf-solr
+  imageTag: latest
+  # imagePullPolicy: "IfNotPresent"
+  # Use this to set the resources available to each solr container
+  master:
     resources: {}
     persistence:
-      enabled: false  # Set this to true to use PVCs with the following properties
-      # resources:
-      #   requests:
-      #     storage: 10Gi
-      # storageClass: ""
+      # Set this to true to use a PVC with the following properties
+      enabled: false
+      storageClass: ""
+      size: 10Gi
+      selector: {}
+  slave:
+    resources: {}
+    persistence:
+      # Set this to true to use a PVC with the following properties
+      enabled: false
+      storageClass: ""
+      size: 10Gi
+      selector: {}
 
-postgres:
-    image: cedadev/esgf-postgres
-    imageTag: latest
-    # imagePullPolicy: "IfNotPresent"
-    # Use this to set the resources available to the postgres container
-    resources: {}
-    persistence:
-      enabled: false  # Set this to true to use a PVC with the following properties
-      # resources:
-      #   requests:
-      #     storage: 10Gi
-      # storageClass: ""
+postgres: &postgresImage
+  image: cedadev/esgf-postgres
+  imageTag: latest
+  # imagePullPolicy: "IfNotPresent"
+
+postgresEsgcet:
+  image: cedadev/esgf-postgres-esgcet
+  imageTag: latest
+  # imagePullPolicy: "IfNotPresent"
+  # Use this to set the resources available to the postgres-esgcet container
+  resources: {}
+  persistence:
+    # Set this to true to use a PVC with the following properties
+    enabled: false
+    storageClass: ""
+    size: 10Gi
+    selector: {}
 
 indexNode:
-    image: cedadev/esgf-index-node
-    imageTag: latest
-    # imagePullPolicy: "IfNotPresent"
-    replicas: 1
-    # Use this to set the resources available to each index node container
-    resources: {}
-    # Configuration for Solr collections
-    # Must have maxShardsPerNode >= (numShards * replicationFactor) / replicas
-    solrCollections:
-      # Number of shards to use for Solr collections
-      mumShards: 1
-      # Replication factor to use for Solr collections
-      replicationFactor: 1
-      # Maximum number of shards allowed per node for a given collection
-      maxShardsPerNode: 1
+  image: cedadev/esgf-index-node
+  imageTag: latest
+  # imagePullPolicy: "IfNotPresent"
+  replicas: 1
+  # Use this to set the resources available to each index node container
+  resources: {}
 
 idpNode:
-    image: cedadev/esgf-idp-node
-    imageTag: latest
-    # imagePullPolicy: "IfNotPresent"
-    replicas: 1
-    # Use this to set the resources available to each index node container
-    resources: {}
+  image: cedadev/esgf-idp-node
+  imageTag: latest
+  # imagePullPolicy: "IfNotPresent"
+  replicas: 1
+  # Use this to set the resources available to each index node container
+  resources: {}
 
 orp:
-    image: cedadev/esgf-orp
-    imageTag: latest
-    # imagePullPolicy: "IfNotPresent"
-    replicas: 1
-    # Use this to set the resources available to each index node container
-    resources: {}
+  image: cedadev/esgf-orp
+  imageTag: latest
+  # imagePullPolicy: "IfNotPresent"
+  replicas: 1
+  # Use this to set the resources available to each index node container
+  resources: {}
 
 tds:
-    image: cedadev/esgf-tds
-    imageTag: latest
-    # imagePullPolicy: "IfNotPresent"
-    replicas: 1
-    # Use this to set the resources available to each index node container
-    resources: {}
-    data:
-      storageClass: ""
-      resources:
-        requests:
-          storage: 10Gi
-    content:
-      storageClass: ""
-      resources:
-        requests:
-          storage: 10Gi
+  image: cedadev/esgf-tds
+  imageTag: latest
+  # imagePullPolicy: "IfNotPresent"
+  replicas: 1
+  # Use this to set the resources available to each index node container
+  resources: {}
+  data:
+    storageClass: ""
+    size: 10Gi
+    selector: {}
+  content:
+    storageClass: ""
+    size: 10Gi
+    selector: {}
 
 cog:
-    image: cedadev/esgf-cog
-    imageTag: latest
-    # imagePullPolicy: "IfNotPresent"
-    replicas: 1
-    # Use this to set the resources available to each index node container
+  image: cedadev/esgf-cog
+  imageTag: latest
+  # imagePullPolicy: "IfNotPresent"
+  replicas: 1
+  # Use this to set the resources available to each index node container
+  resources: {}
+  # The postgres used by CoG
+  postgres:
+    <<: *postgresImage
     resources: {}
+    persistence:
+      # Set this to true to use a PVC with the following properties
+      enabled: false
+      storageClass: ""
+      size: 10Gi
+      selector: {}
 
 auth:
-    image: cedadev/esgf-auth
-    imageTag: latest
-    # imagePullPolicy: "IfNotPresent"
-    replicas: 1
-    # Use this to set the resources available to each index node container
+  image: cedadev/esgf-auth
+  imageTag: latest
+  # imagePullPolicy: "IfNotPresent"
+  replicas: 1
+  # Use this to set the resources available to each index node container
+  resources: {}
+  # The postgres for use by esgf-auth
+  postgres:
+    <<: *postgresImage
     resources: {}
-    # The postgres for use by esgf-auth
-    postgres:
-      image: postgres
-      imageTag: 10
-      # imagePullPolicy: "IfNotPresent"
-      resources: {}
-      persistence:
-        enabled: false  # Set this to true to use a PVC with the following
-        # resources:
-        #   requests:
-        #     storage: 10Gi
-        # storageClass: ""
+    persistence:
+      # Set this to true to use a PVC with the following properties
+      enabled: false
+      storageClass: ""
+      size: 10Gi
+      selector: {}
 
 slcs:
-    image: cedadev/esgf-slcs
-    imageTag: latest
-    # imagePullPolicy: "IfNotPresent"
-    replicas: 1
-    # Use this to set the resources available to each index node container
+  image: cedadev/esgf-slcs
+  imageTag: latest
+  # imagePullPolicy: "IfNotPresent"
+  replicas: 1
+  # Use this to set the resources available to each index node container
+  resources: {}
+  # The postgres for use by the SLCS
+  postgres:
+    <<: *postgresImage
     resources: {}
-    # The postgres for use by the SLCS
-    postgres:
-      image: postgres
-      imageTag: 10
-      # imagePullPolicy: "IfNotPresent"
-      resources: {}
-      persistence:
-        enabled: false  # Set this to true to use a PVC with the following properties
-        # resources:
-        #   requests:
-        #     storage: 10Gi
-        # storageClass: ""
+    persistence:
+      # Set this to true to use a PVC with the following properties
+      enabled: false
+      storageClass: ""
+      size: 10Gi
+      selector: {}
 
 proxy:
   image: cedadev/esgf-proxy

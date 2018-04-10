@@ -5,6 +5,7 @@ metadata:
   labels:
 {{ include "default-labels" . | indent 4 }}
     component: slcs
+    slcs-role: frontend
 spec:
   replicas: {{ .Values.slcs.replicas }}
   # Select pods on release and component only, rather than all labels
@@ -13,24 +14,27 @@ spec:
     matchLabels:
       release: {{ .Release.Name }}
       component: slcs
+      slcs-role: frontend
   template:
     metadata:
       labels:
 {{ include "default-labels" . | indent 8 }}
         component: slcs
+        slcs-role: frontend
       annotations:
-        checksum/postgres-secrets: {{ include (print $.Template.BasePath "/postgres/secret.yaml") . | sha256sum }}
+        checksum/postgres-esgcet-secrets: {{ include (print $.Template.BasePath "/postgres-esgcet/secret.yaml") . | sha256sum }}
         checksum/slcs-secrets: {{ include (print $.Template.BasePath "/slcs/secret.yaml") . | sha256sum }}
         checksum/slcs-ca: {{ include (print $.Template.BasePath "/slcs/secret-slcs-ca.yaml") . | sha256sum }}
         checksum/trust-bundle: {{ include (print $.Template.BasePath "/certificates/trust-bundle-configmap.yaml") . | sha256sum }}
     spec:
       initContainers:
         # Wait for both postgres databases to become available before starting
-        - name: ensure-slcs-postgres
-          image: postgres
+        - name: ensure-postgres-slcs
+          image: "{{ .Values.postgres.image }}:{{ .Values.postgres.imageTag }}"
+          imagePullPolicy: {{ default "" .Values.postgres.imagePullPolicy | quote }}
           env:
             - name: PGHOST
-              value: "{{ .Release.Name }}-slcs-postgres"
+              value: "{{ .Release.Name }}-postgres-slcs"
             - name: PGPORT
               value: "5432"
             - name: PGUSER
@@ -53,11 +57,12 @@ spec:
                 if pg_isready; then exit 0; fi
               done
               exit 1
-        - name: ensure-postgres
-          image: postgres
+        - name: ensure-postgres-esgcet
+          image: "{{ .Values.postgres.image }}:{{ .Values.postgres.imageTag }}"
+          imagePullPolicy: {{ default "" .Values.postgres.imagePullPolicy | quote }}
           env:
             - name: PGHOST
-              value: "{{ .Release.Name }}-postgres"
+              value: "{{ .Release.Name }}-postgres-esgcet"
             - name: PGPORT
               value: "5432"
             - name: PGUSER
@@ -65,7 +70,7 @@ spec:
             - name: PGPASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: "{{ .Release.Name }}-postgres-secrets"
+                  name: "{{ .Release.Name }}-postgres-esgcet-secrets"
                   key: "database-password"
             - name: PGDATABASE
               value: esgcet
@@ -123,10 +128,8 @@ spec:
             # SLCS database
             - name: DJANGO_DATABASE_DEFAULT_ENGINE
               value: django.db.backends.postgresql
-            - name: DJANGO_DATABASE_DEFAULT_NAME
-              value: slcs
             - name: DJANGO_DATABASE_DEFAULT_HOST
-              value: "{{ .Release.Name }}-slcs-postgres"
+              value: "{{ .Release.Name }}-postgres-slcs"
             - name: DJANGO_DATABASE_DEFAULT_PORT
               value: "5432"
             - name: DJANGO_DATABASE_DEFAULT_USER
@@ -136,13 +139,13 @@ spec:
                 secretKeyRef:
                   name: "{{ .Release.Name }}-slcs-secrets"
                   key: "slcs-database-password"
+            - name: DJANGO_DATABASE_DEFAULT_NAME
+              value: slcs
             # ESGF User database
             - name: DJANGO_DATABASE_USERDB_ENGINE
               value: django.db.backends.postgresql
-            - name: DJANGO_DATABASE_USERDB_NAME
-              value: esgcet
             - name: DJANGO_DATABASE_USERDB_HOST
-              value: "{{ .Release.Name }}-postgres"
+              value: "{{ .Release.Name }}-postgres-esgcet"
             - name: DJANGO_DATABASE_USERDB_PORT
               value: "5432"
             - name: DJANGO_DATABASE_USERDB_USER
@@ -150,8 +153,10 @@ spec:
             - name: DJANGO_DATABASE_USERDB_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: "{{ .Release.Name }}-postgres-secrets"
+                  name: "{{ .Release.Name }}-postgres-esgcet-secrets"
                   key: "database-password"
+            - name: DJANGO_DATABASE_USERDB_NAME
+              value: esgcet
             # Make the rootAdmin account a superuser
             - name: DJANGO_CREATE_SUPERUSER
               value: "1"

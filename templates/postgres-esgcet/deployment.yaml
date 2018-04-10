@@ -1,29 +1,29 @@
-{{- if .Values.postgres.persistence.enabled }}
+{{- if .Values.postgresEsgcet.persistence.enabled }}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: "{{ .Release.Name }}-postgres"
+  name: "{{ .Release.Name }}-postgres-esgcet"
   labels:
 {{ include "default-labels" . | indent 4 }}
-    component: postgres
+    component: postgres-esgcet
 spec:
   accessModes:
     - ReadWriteOnce
-  storageClassName: {{ .Values.postgres.persistence.storageClass | default "" | quote }}
+  storageClassName: {{ .Values.postgresEsgcet.persistence.storageClass | default "" | quote }}
   resources:
-{{ toYaml .Values.postgres.persistence.resources | indent 4 }}
-{{- if .Values.postgres.persistence.selector }}
-{{ toYaml .Values.postgres.persistence.selector | indent 2 }}
-{{- end }}
+    requests:
+      storage: {{ .Values.postgresEsgcet.persistence.size }}
+  selector:
+{{ toYaml .Values.postgresEsgcet.persistence.selector | indent 4 }}
 ---
 {{- end }}
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: "{{ .Release.Name }}-postgres"
+  name: "{{ .Release.Name }}-postgres-esgcet"
   labels:
 {{ include "default-labels" . | indent 4 }}
-    component: postgres
+    component: postgres-esgcet
 spec:
   replicas: 1
   # Select pods on release and component only, rather than all labels
@@ -31,20 +31,20 @@ spec:
   selector:
     matchLabels:
       release: {{ .Release.Name }}
-      component: postgres
+      component: postgres-esgcet
   template:
     metadata:
       labels:
 {{ include "default-labels" . | indent 8 }}
-        component: postgres
+        component: postgres-esgcet
       annotations:
-        checksum/postgres-secrets: {{ include (print $.Template.BasePath "/postgres/secret.yaml") . | sha256sum }}
+        checksum/postgres-esgcet-secrets: {{ include (print $.Template.BasePath "/postgres-esgcet/secret.yaml") . | sha256sum }}
         checksum/cog-secrets: {{ include (print $.Template.BasePath "/cog/secret.yaml") . | sha256sum }}
     spec:
       containers:
-        - name: postgres
-          image: "{{ .Values.postgres.image }}:{{ .Values.postgres.imageTag }}"
-          imagePullPolicy: {{ default "" .Values.postgres.imagePullPolicy | quote }}
+        - name: postgres-esgcet
+          image: "{{ .Values.postgresEsgcet.image }}:{{ .Values.postgresEsgcet.imageTag }}"
+          imagePullPolicy: {{ default "" .Values.postgresEsgcet.imagePullPolicy | quote }}
           ports:
             - name: postgres
               containerPort: 5432
@@ -61,15 +61,19 @@ spec:
             initialDelaySeconds: 60
             periodSeconds: 10
           env:
-            - name: DBSUPER_PASSWORD
+            - name: POSTGRESQL_DATABASE
+              value: esgcet
+            - name: POSTGRESQL_USER
+              value: dbsuper
+            - name: POSTGRESQL_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: "{{ .Release.Name }}-postgres-secrets"
+                  name: "{{ .Release.Name }}-postgres-esgcet-secrets"
                   key: "database-password"
-            - name: ESGCET_PASSWORD
+            - name: ESGF_ESGCET_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: "{{ .Release.Name }}-postgres-secrets"
+                  name: "{{ .Release.Name }}-postgres-esgcet-secrets"
                   key: database-publisher-password
             - name: ESGF_ROOTADMIN_EMAIL
               value: "CoG@{{ .Values.hostname }}"
@@ -86,12 +90,12 @@ spec:
             - name: postgres-data
               mountPath: /var/lib/pgsql/data
           resources:
-{{ toYaml .Values.postgres.resources | indent 12 }}
+{{ toYaml .Values.postgresEsgcet.resources | indent 12 }}
       volumes:
         - name: postgres-data
-{{- if .Values.postgres.persistence.enabled }}
+{{- if .Values.postgresEsgcet.persistence.enabled }}
           persistentVolumeClaim:
-            claimName: "{{ .Release.Name }}-postgres"
+            claimName: "{{ .Release.Name }}-postgres-esgcet"
 {{- else }}
           emptyDir: {}
 {{- end }}

@@ -2,28 +2,30 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: "{{ .Release.Name }}-slcs-postgres"
+  name: "{{ .Release.Name }}-postgres-slcs"
   labels:
 {{ include "default-labels" . | indent 4 }}
-    component: slcs-postgres
+    component: slcs
+    slcs-role: database
 spec:
   accessModes:
     - ReadWriteOnce
   storageClassName: {{ .Values.slcs.postgres.persistence.storageClass | default "" | quote }}
   resources:
-{{ toYaml .Values.slcs.postgres.persistence.resources | indent 4 }}
-{{- if .Values.slcs.postgres.persistence.selector }}
-{{ toYaml .Values.slcs.postgres.persistence.selector | indent 2 }}
-{{- end }}
+    requests:
+      storage: {{ .Values.slcs.postgres.persistence.size }}
+  selector:
+{{ toYaml .Values.slcs.postgres.persistence.selector | indent 4 }}
 ---
 {{- end }}
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: "{{ .Release.Name }}-slcs-postgres"
+  name: "{{ .Release.Name }}-postgres-slcs"
   labels:
 {{ include "default-labels" . | indent 4 }}
-    component: slcs-postgres
+    component: slcs
+    slcs-role: database
 spec:
   replicas: 1
   # Select pods on release and component only, rather than all labels
@@ -31,49 +33,56 @@ spec:
   selector:
     matchLabels:
       release: {{ .Release.Name }}
-      component: slcs-postgres
+      component: slcs
+      slcs-role: database
   template:
     metadata:
       labels:
 {{ include "default-labels" . | indent 8 }}
-        component: slcs-postgres
+        component: slcs
+        slcs-role: database
       annotations:
         checksum/slcs-secrets: {{ include (print $.Template.BasePath "/slcs/secret.yaml") . | sha256sum }}
     spec:
       containers:
-        - name: slcs-postgres
+        - name: postgres-slcs
           image: "{{ .Values.slcs.postgres.image }}:{{ .Values.slcs.postgres.imageTag }}"
           imagePullPolicy: {{ default "" .Values.slcs.postgres.imagePullPolicy | quote }}
           ports:
             - name: postgres
               containerPort: 5432
-          livenessProbe:
-            tcpSocket:
+          # The readiness and liveness probes run the same thing, but the liveness
+          # probe just waits a while before kicking in whereas the readiness probe
+          # starts straight away
+          readinessProbe:
+            tcpSocket: &probe
               port: 5432
             initialDelaySeconds: 10
             periodSeconds: 10
+          livenessProbe:
+            tcpSocket: *probe
+            initialDelaySeconds: 60
+            periodSeconds: 10
           env:
-            - name: POSTGRES_USER
-              value: slcsuser
-            - name: POSTGRES_DB
+            - name: POSTGRESQL_DATABASE
               value: slcs
-            - name: POSTGRES_INITDB_ARGS
-              value: "--encoding=UTF-8"
-            - name: POSTGRES_PASSWORD
+            - name: POSTGRESQL_USER
+              value: slcsuser
+            - name: POSTGRESQL_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: "{{ .Release.Name }}-slcs-secrets"
                   key: "slcs-database-password"
           volumeMounts:
             - name: postgres-data
-              mountPath: /var/lib/postgresql/data
+              mountPath: /var/lib/pgsql/data
           resources:
 {{ toYaml .Values.slcs.postgres.resources | indent 12 }}
       volumes:
         - name: postgres-data
 {{- if .Values.slcs.postgres.persistence.enabled }}
           persistentVolumeClaim:
-            claimName: "{{ .Release.Name }}-slcs-postgres"
+            claimName: "{{ .Release.Name }}-postgres-slcs"
 {{- else }}
           emptyDir: {}
 {{- end }}

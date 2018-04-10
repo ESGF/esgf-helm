@@ -24,26 +24,12 @@ mode:
 minishift ssh -- sudo ip link set docker0 promisc on
 ```
 
-By default, OpenShift is extremely secure, and overrides the `USER` set in the
-`Dockerfile` with a UID from a range allocated to the project. The ESGF containers
-expect to be able to run as the user specified in the `Dockerfile`, and some
-must be allowed to run as root.
-
-To relax this to something more akin to Kubernetes default behaviour, run the
-following commands.
-
-```sh
-oc login -u system:admin
-oc adm policy add-scc-to-group anyuid system:authenticated
-oc login -u developer
-```
-
 Install a Tiller to manage the current project/namespace:
 
 ```sh
 oc create sa tiller
 oc policy add-role-to-user admin -z tiller
-export TILLER_NAMESPACE="$(oc config current-context | cut -d "/" -f 1)"
+export TILLER_NAMESPACE="$(oc project -q)"
 helm init --service-account tiller
 # Wait for the tiller pod to start
 oc get pods
@@ -73,12 +59,10 @@ $ oc scale --replicas=1 deployment esgf-publisher
 # a long time
 $ oc get pods -w -l "component=publisher"
 # Open a shell inside the pod
-$ oc exec -it <publisher pod name> bash
+$ oc exec -it <publisher pod name> /usr/local/bin/docker-entrypoint.sh bash
 # Download the data
 [publisher] $ mkdir -p /esg/data/test
 [publisher] $ wget -O /esg/data/test/sftlf.nc http://distrib-coffee.ipsl.jussieu.fr/pub/esgf/dist/externals/sftlf.nc
-# Make sure the correct SSL_CERT_FILE is being used
-[publisher] $ export SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
 # Fetch a certificate
 [publisher] $ fetch-certificate
 # Publish the data

@@ -1,0 +1,97 @@
+{{- if .Values.solr.slave.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: "{{ .Release.Name }}-solr-slave"
+  labels:
+{{ include "default-labels" . | indent 4 }}
+    component: solr
+    solr-role: slave
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: {{ .Values.solr.slave.persistence.storageClass | default "" | quote }}
+  resources:
+    requests:
+      storage: {{ .Values.solr.slave.persistence.size }}
+  selector:
+{{ toYaml .Values.solr.slave.persistence.selector | indent 4 }}
+---
+{{- end }}
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: "{{ .Release.Name }}-solr-slave"
+  labels:
+{{ include "default-labels" . | indent 4 }}
+    component: solr
+    solr-role: slave
+spec:
+  # Select pods on release and component only, rather than all labels
+  # This means that the selector will match all pods from all versions of the chart when upgrading
+  selector:
+    matchLabels:
+      release: {{ .Release.Name }}
+      component: solr
+      solr-role: slave
+  replicas: 1
+  template:
+    metadata:
+      labels:
+{{ include "default-labels" . | indent 8 }}
+        component: solr
+        solr-role: slave
+    spec:
+      initContainers:
+        # Wait for the solr-master to become available before starting
+        - name: ensure-solr-master
+          image: "{{ .Values.solr.image }}:{{ .Values.solr.imageTag }}"
+          imagePullPolicy: {{ default "" .Values.solr.imagePullPolicy | quote }}
+          args:
+            - "wait-for-solr.sh"
+            - "--max-attempts"
+            - "120"
+            - "--solr-url"
+            - "http://{{ .Release.Name }}-solr-master:8983"
+      containers:
+        - name: solr-slave
+          image: "{{ .Values.solr.image }}:{{ .Values.solr.imageTag }}"
+          imagePullPolicy: {{ default "" .Values.solr.imagePullPolicy | quote }}
+          ports:
+            - name: solr
+              containerPort: 8983
+          # The readiness and liveness probes run the same thing, but the liveness
+          # probe just waits a while before kicking in whereas the readiness probe
+          # starts straight away
+          readinessProbe:
+            httpGet: &probe
+              path: /solr/admin/info/system?wt=json
+              port: 8983
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: *probe
+            initialDelaySeconds: 60
+            periodSeconds: 10
+          env:
+            - name: SOLR_HOME
+              value: /esg/solr-home
+            - name: SOLR_HEAP
+              value: 1g
+            - name: ESGF_SOLR_ENABLE_SLAVE
+              value: "1"
+            - name: ESGF_SOLR_MASTER_URL
+              value: "http://{{ .Release.Name }}-solr-master:8983"
+          resources:
+{{ toYaml .Values.solr.slave.resources | indent 12 }}
+          volumeMounts:
+            - name: solr-home
+              mountPath: /esg/solr-home
+      volumes:
+        - name: solr-home
+{{- if .Values.solr.slave.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: "{{ .Release.Name }}-solr-slave"
+{{- else }}
+          emptyDir: {}
+{{- end }}
