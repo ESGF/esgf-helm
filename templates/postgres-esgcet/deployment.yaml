@@ -9,7 +9,9 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
-  storageClassName: {{ .Values.postgresEsgcet.persistence.storageClass | default "" | quote }}
+{{- if .Values.postgresEsgcet.persistence.storageClass }}
+  storageClassName: "{{ .Values.postgresEsgcet.persistence.storageClass }}"
+{{- end }}
   resources:
     requests:
       storage: {{ .Values.postgresEsgcet.persistence.size }}

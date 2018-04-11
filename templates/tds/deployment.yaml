@@ -8,7 +8,9 @@ metadata:
 spec:
   accessModes:
     - ReadWriteMany
-  storageClassName: {{ .Values.tds.data.storageClass | default "" | quote }}
+{{- if .Values.tds.data.storageClass }}
+  storageClassName: "{{ .Values.tds.data.storageClass }}"
+{{- end }}
   resources:
     requests:
       storage: {{ .Values.tds.data.size }}
@@ -25,7 +27,9 @@ metadata:
 spec:
   accessModes:
     - ReadWriteMany
-  storageClassName: {{ .Values.tds.content.storageClass | default "" | quote }}
+{{- if .Values.tds.content.storageClass }}
+  storageClassName: "{{ .Values.tds.content.storageClass }}"
+{{- end }}
   resources:
     requests:
       storage: {{ .Values.tds.content.size }}

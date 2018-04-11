@@ -10,7 +10,9 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
-  storageClassName: {{ .Values.solr.slave.persistence.storageClass | default "" | quote }}
+{{- if .Values.solr.slave.persistence.storageClass }}
+  storageClassName: "{{ .Values.solr.slave.persistence.storageClass }}"
+{{- end }}
   resources:
     requests:
       storage: {{ .Values.solr.slave.persistence.size }}
