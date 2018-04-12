@@ -125,7 +125,7 @@ First, install [Minishift](https://www.openshift.org/minishift/) and the
 Then start a Minishift cluster with plenty of RAM:
 
 ```sh
-minishift start --openshift-version v3.7.1 --memory 8GB --disk-size 100GB
+minishift start --openshift-version v3.9.0 --memory 8GB --disk-size 100GB
 eval $(minishift oc-env)
 ```
 
@@ -137,7 +137,8 @@ mode:
 minishift ssh -- sudo ip link set docker0 promisc on
 ```
 
-Because of the way OpenShift manages permissions, we need a Tiller per project. So install a Tiller to manage the current project/namespace:
+Because of the way OpenShift manages permissions, we need a Tiller per project.
+So install a Tiller to manage the current project/namespace:
 
 ```sh
 oc create sa tiller
@@ -159,7 +160,8 @@ docker-compose run esgf-setup generate-secrets
 docker-compose run esgf-setup generate-test-certificates
 docker-compose run esgf-setup create-trust-bundle
 # Deploy the ESGF components
-docker-compose run -T esgf-setup helm-values | helm upgrade esgf . --install -f -
+docker-compose run -T esgf-setup helm-values | \
+  helm upgrade esgf . --install --set "proxy.ingressMode=openshift" -f -
 ```
 
 Publish the test dataset (similar to above for `minikube`):
