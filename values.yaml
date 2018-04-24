@@ -1,5 +1,5 @@
 solr:
-  image: cedadev/esgf-solr
+  image: esgfhub/solr
   imageTag: latest
   # imagePullPolicy: "IfNotPresent"
   # Use this to set the resources available to each solr container
@@ -21,12 +21,12 @@ solr:
       selector: {}
 
 postgres: &postgresImage
-  image: cedadev/esgf-postgres
+  image: esgfhub/postgres
   imageTag: latest
   # imagePullPolicy: "IfNotPresent"
 
 postgresEsgcet:
-  image: cedadev/esgf-postgres-esgcet
+  image: esgfhub/postgres-esgcet
   imageTag: latest
   # imagePullPolicy: "IfNotPresent"
   # Use this to set the resources available to the postgres-esgcet container
@@ -39,7 +39,7 @@ postgresEsgcet:
     selector: {}
 
 indexNode:
-  image: cedadev/esgf-index-node
+  image: esgfhub/index-node
   imageTag: latest
   # imagePullPolicy: "IfNotPresent"
   replicas: 1
@@ -47,7 +47,7 @@ indexNode:
   resources: {}
 
 idpNode:
-  image: cedadev/esgf-idp-node
+  image: esgfhub/idp-node
   imageTag: latest
   # imagePullPolicy: "IfNotPresent"
   replicas: 1
@@ -55,7 +55,7 @@ idpNode:
   resources: {}
 
 orp:
-  image: cedadev/esgf-orp
+  image: esgfhub/orp
   imageTag: latest
   # imagePullPolicy: "IfNotPresent"
   replicas: 1
@@ -63,7 +63,7 @@ orp:
   resources: {}
 
 tds:
-  image: cedadev/esgf-tds
+  image: esgfhub/tds
   imageTag: latest
   # imagePullPolicy: "IfNotPresent"
   replicas: 1
@@ -79,7 +79,7 @@ tds:
     selector: {}
 
 cog:
-  image: cedadev/esgf-cog
+  image: esgfhub/cog
   imageTag: latest
   # imagePullPolicy: "IfNotPresent"
   replicas: 1
@@ -97,7 +97,7 @@ cog:
       selector: {}
 
 auth:
-  image: cedadev/esgf-auth
+  image: esgfhub/auth
   imageTag: latest
   # imagePullPolicy: "IfNotPresent"
   replicas: 1
@@ -115,7 +115,7 @@ auth:
       selector: {}
 
 slcs:
-  image: cedadev/esgf-slcs
+  image: esgfhub/slcs
   imageTag: latest
   # imagePullPolicy: "IfNotPresent"
   replicas: 1
@@ -133,7 +133,7 @@ slcs:
       selector: {}
 
 proxy:
-  image: cedadev/esgf-proxy
+  image: esgfhub/proxy
   imageTag: latest
   # imagePullPolicy: "IfNotPresent"
   replicas: 1
@@ -142,7 +142,7 @@ proxy:
   ingressMode: kubernetes
 
 publisher:
-  image: cedadev/esgf-publisher
+  image: esgfhub/publisher
   imageTag: latest
   # imagePullPolicy: "IfNotPresent"
   resources: {}
