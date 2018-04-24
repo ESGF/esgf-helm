@@ -14,7 +14,7 @@ the Kubernetes version due to [this bug](https://github.com/kubernetes/kubernete
 See `minikube get-k8s-versions` for the available versions:
 
 ```sh
-minikube start --kubernetes-version v1.9.0 --memory 8096 --disk-size 100GB
+minikube start --kubernetes-version v1.10.0 --memory 8096 --disk-size 100GB
 ```
 
 Pods must be able to loop back to themselves via their own service - this is known
@@ -84,7 +84,7 @@ Try the following as a basic test of functionality:
   * Check Solr is running at `https://$ESGF_HOSTNAME/solr`
 
 
-Publish the test dataset (similar to [esgf-docker](https://cedadev.github.io/esgf-docker/usage/publishing/)):
+Publish the test dataset (similar to [esgf-docker](https://esgf.github.io/esgf-docker/usage/publishing/)):
 
 ```sh
 # Scale up the publisher deployment

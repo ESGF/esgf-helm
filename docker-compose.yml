@@ -8,7 +8,7 @@ version: '3.4'
 
 services:
   esgf-setup:
-    image: "${ESGF_HUB}/esgf-setup:${ESGF_VERSION}"
+    image: "${ESGF_HUB}/${ESGF_PREFIX}setup:${ESGF_VERSION}"
     environment:
       ESGF_HOSTNAME:
     volumes:
